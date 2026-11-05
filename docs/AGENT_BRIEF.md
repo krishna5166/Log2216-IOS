@@ -20,7 +20,7 @@ Fit2216: a private two-person workout, body-weight and macros app. The web versi
 - **Workout** tab: the planned schedule — list of upcoming days with muscle focus, tap a day for the full session (exercises, sets, reps, weights).
 - **Macros** tab: carried over from the PWA as-is; layout tweaks later.
 - **Insights** tab: carried over from the PWA as-is; same charts and muscle analysis, rebuilt in SwiftUI.
-- Settings moves to a **profile icon** top-right (standard iOS pattern), freeing the tab bar for the four content tabs above. Wait — with Circle dropped, the tab bar is Summary, Workout, Macros, Insights. Profile icon top-right for settings.
+- Settings moves to a **profile icon** top-right (standard iOS pattern). Tab bar: Summary, Workout, Macros, Insights.
 
 ## State
 Done in `Fit2216Core` (50 tests, all passing; `swift test` in `Packages/Fit2216Core`): models that repair bad data while decoding, units, dates (Monday-first weeks),
