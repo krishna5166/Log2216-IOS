@@ -1,5 +1,5 @@
 import XCTest
-@testable import CoupleFitCore
+@testable import Fit2216Core
 
 final class PlanTests: XCTestCase {
     private let wed = day(2026, 10, 28) // Wednesday; the week began Monday 26 Oct

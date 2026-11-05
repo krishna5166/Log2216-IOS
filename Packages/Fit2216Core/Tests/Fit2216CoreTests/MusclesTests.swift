@@ -1,5 +1,5 @@
 import XCTest
-@testable import CoupleFitCore
+@testable import Fit2216Core
 
 final class MusclesTests: XCTestCase {
     func testCommonLiftsAndTheOrderingTraps() {

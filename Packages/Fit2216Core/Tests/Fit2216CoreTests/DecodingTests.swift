@@ -1,5 +1,5 @@
 import XCTest
-@testable import CoupleFitCore
+@testable import Fit2216Core
 
 /// The blank-screen bugs of the web app, as decoding cases: bad data must never stop a screen from drawing.
 final class DecodingTests: XCTestCase {

@@ -1,5 +1,5 @@
 import Foundation
-@testable import CoupleFitCore
+@testable import Fit2216Core
 
 /// A fixed calendar so tests behave the same on any machine and any day.
 let cal: Calendar = { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "America/Los_Angeles")!; return c }()
