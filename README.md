@@ -12,13 +12,15 @@ same documents, so history carries over and both can be used side by side while 
 ## Run the tests
 In Xcode: File → Open → `Packages/Fit2216Core`, then Product → Test (⌘U). From a terminal: `cd Packages/Fit2216Core && swift test`.
 
-## Roadmap
-1. Core logic package (this commit): models, units, dates, plan, muscles.
-2. Core, continued: insights and goal projection, spreadsheet (CSV) import/export.
-3. iPhone shell: sign-in, load the plan, Home (body figure, day strip, Start).
-4. iPhone logging: exercise screen, rest timer as a local notification, Previous and the jump list.
-5. Apple Watch: today's exercises, set entry with the Digital Crown, rest-timer haptic, sets sent to the phone (the phone is the only device that talks to Firestore).
-6. Remaining screens (Macros, Insights, Circle, Settings), Apple Health weight.
+## Roadmap (see docs/AGENT_BRIEF.md for the decisions behind it)
+1. Core logic package: models, units, dates, plan, muscles, insights and goal projection. **Done** (50 tests).
+2. Core, continued: spreadsheet (CSV) import/export, copy-workout from the other person's log.
+3. iPhone app shell: sign-in, load the plan, tab bar (Summary, Workout, Macros, Insights), profile icon for Settings.
+4. Summary: HealthKit rings (read-only), today's session card with target muscles, sets done vs planned and streak, fixed Start button.
+5. Logging: exercise screen, rest timer as a local notification, Previous and the jump list.
+6. Macros and Insights screens, rebuilt in SwiftUI from the web app.
+7. Optional HealthKit samples (separate entries, no workout session).
+No Apple Watch app and no Circle tab. Distribution: unlisted App Store link, TestFlight also available.
 
 ## Rules
 - Never commit `GoogleService-Info.plist`, keys or signing files (the `.gitignore` blocks them).
