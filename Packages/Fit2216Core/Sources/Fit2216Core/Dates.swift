@@ -39,3 +39,16 @@ public enum Dates {
         return localDate(d, cal) == s ? d : nil
     }
 }
+
+extension Dates {
+    /// A "YYYY-MM-DD" date moved by `n` calendar days.
+    public static func addDays(_ s: String, _ n: Int, _ cal: Calendar = .current) -> String {
+        guard let d = parse(s, cal), let moved = cal.date(byAdding: .day, value: n, to: d) else { return s }
+        return localDate(moved, cal)
+    }
+
+    /// Whole calendar days from one date to another (negative when `to` is earlier). Immune to daylight-saving shifts.
+    public static func daysBetween(_ from: Date, _ to: Date, _ cal: Calendar = .current) -> Int {
+        cal.dateComponents([.day], from: cal.startOfDay(for: from), to: cal.startOfDay(for: to)).day ?? 0
+    }
+}
