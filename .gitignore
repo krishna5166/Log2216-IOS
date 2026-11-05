@@ -1,0 +1,14 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+.build/
+.swiftpm/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+# Secrets: never commit the Firebase config or signing material
+GoogleService-Info.plist
+*.p8
+*.p12
+*.mobileprovision
+.DS_Store
