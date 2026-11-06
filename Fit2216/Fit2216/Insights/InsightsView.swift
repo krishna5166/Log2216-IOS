@@ -5,7 +5,7 @@ import Fit2216Core
 struct InsightsView: View {
     @Environment(AppModel.self) private var model
     @State private var showWeighIn = false
-    @State private var macroDays: [(date: String, pct: Int?)] = []
+    @State private var macroPercents: [String: Int] = [:]
 
     var body: some View {
         let now = model.now
@@ -15,6 +15,11 @@ struct InsightsView: View {
         let weeks = Insights.weeklyStats(model.logs, plan: model.plan, now, weeks: Insights.chartWeeks(model.logs, now, max: 8))
         let records = Insights.recentPRs(Insights.liftHistory(model.logs), now)
         let baseline = Insights.baselineWeight(heightCm: model.profile.heightCm, targetWeightKg: model.profile.targetWeightKg)
+        let progression = Progress.progression(plan: model.plan, logs: model.logs, unit: model.profile.gymUnit, now)
+        let recap = Recap.week(plan: model.plan, logs: model.logs, weights: model.weights, percents: macroPercents, now)
+        let calendar = Recap.calendarWeeks(plan: model.plan, logs: model.logs, percents: macroPercents, now)
+        let today = Dates.localDate(now)
+        let macroDays: [(date: String, pct: Int?)] = (0..<7).map { i in let d = Dates.addDays(today, i - 6); return (date: d, pct: macroPercents[d]) }
 
         List {
             Section("Body weight") {
@@ -31,6 +36,35 @@ struct InsightsView: View {
                 Button("Log weight") { showWeighIn = true }
                 NavigationLink("All weigh-ins") { WeightHistoryView() }
             }
+
+            Section {
+                if progression.raise.isEmpty && progression.stalled.isEmpty {
+                    Text("Nothing to change yet. Keep logging.").font(.footnote).foregroundStyle(.secondary)
+                }
+                ForEach(progression.raise, id: \.name) { r in
+                    Label("\(r.name): \(Units.tidy(r.from)) → \(Units.tidy(r.to)) \(model.profile.gymUnit.rawValue)", systemImage: "arrow.up.circle").font(.subheadline)
+                }
+                ForEach(progression.stalled, id: \.name) { st in
+                    Label("\(st.name) has stalled; try \(Units.tidy(st.deloadTo)) \(model.profile.gymUnit.rawValue) for a week", systemImage: "pause.circle").font(.subheadline)
+                }
+            } header: {
+                Text("Next week")
+            } footer: {
+                Text(progression.deload ? "Two or more lifts have stalled, which usually means tiredness rather than one bad lift. A lighter week (about 90% of the working weight) is worth trying. Suggestions only; nothing in your plan changes." : "Suggestions only; nothing in your plan changes.")
+            }
+
+            Section(recap.label) {
+                LabeledContent("Workouts", value: "\(recap.done) of \(recap.planned)")
+                ForEach(recap.records, id: \.name) { r in
+                    Label("\(r.name) \(Format.weight(kg: r.weightKg, unit: model.profile.gymUnit)) × \(Int(r.reps))", systemImage: "trophy").font(.subheadline)
+                }
+                if let change = recap.changeKg {
+                    LabeledContent("Weight", value: "\(change >= 0 ? "+" : "")\(Units.tidy(Units.fromKg(change, to: model.profile.bodyUnit))) \(model.profile.bodyUnit.rawValue)")
+                }
+                if let avg = recap.macroAvg { LabeledContent("Food targets", value: "\(avg)% on average (\(recap.macroDays) days)") }
+            }
+
+            Section("Consistency") { ConsistencyGrid(weeks: calendar) }
 
             if !flags.isEmpty {
                 Section("Balance") {
@@ -78,7 +112,10 @@ struct InsightsView: View {
                 Section("Food targets, last 7 days") { MacroDaysChart(days: macroDays) }
             }
 
-            Section { NavigationLink("Past sessions") { PastSessionsView() } }
+            Section {
+                NavigationLink("All lifts") { LiftsListView() }
+                NavigationLink("Past sessions") { PastSessionsView() }
+            }
         }
         .navigationTitle("Insights")
         .sheet(isPresented: $showWeighIn) { WeighInSheet() }
@@ -87,10 +124,8 @@ struct InsightsView: View {
 
     private func loadMacroDays() async {
         guard let uid = model.uid else { return }
-        let today = Dates.localDate(model.now)
-        let from = Dates.addDays(today, -6)
-        let pcts = (try? await model.firestore.loadFoodPercents(uid: uid, from: from)) ?? [:]
-        macroDays = (0..<7).map { i in let d = Dates.addDays(from, i); return (date: d, pct: pcts[d]) }
+        let from = Dates.addDays(Dates.localDate(model.now), -34)
+        macroPercents = (try? await model.firestore.loadFoodPercents(uid: uid, from: from)) ?? [:]
     }
 
     private func paceText(_ kgPerWeek: Double) -> String {

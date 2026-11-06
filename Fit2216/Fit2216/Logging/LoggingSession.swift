@@ -43,7 +43,7 @@ final class LoggingSession {
         onSave(log)
         if Logging.shouldStartRest(before: before, after: log, exercise: exercise, index: i, day: day) {
             timer.start(seconds: Plan.restSeconds(exercise))
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.light()
         }
     }
 
@@ -63,6 +63,7 @@ final class LoggingSession {
         return renamed
     }
 
+    var readyToIncrease: Bool { Plan.readyToIncrease(exercise, lastTime?.sets) }
     var isSwapped: Bool { shownName != exercise.name }
     var isCopiedTemplate: Bool { log.template != nil }
 
@@ -76,7 +77,7 @@ final class LoggingSession {
         log = Logging.finished(log)
         onSave(log)
         timer.stop()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.success()
     }
 
     func exerciseProgress(_ e: TemplateExercise) -> Int { Logging.setsLogged(log, exercise: e.name) }

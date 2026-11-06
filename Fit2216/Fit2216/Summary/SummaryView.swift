@@ -4,6 +4,7 @@ import Fit2216Core
 struct SummaryView: View {
     @Environment(AppModel.self) private var model
     @State private var logging: LoggingTarget?
+    @State private var reviewing: LoggingTarget?
 
     var body: some View {
         let now = model.now
@@ -30,9 +31,13 @@ struct SummaryView: View {
         }
         .navigationTitle("Summary")
         .safeAreaInset(edge: .bottom) {
-            StartBar(session: session) { if let session { logging = LoggingTarget(day: session.day) } }
+            StartBar(session: session) {
+                guard let session else { return }
+                if session.state == .finished { reviewing = LoggingTarget(day: session.day) } else { logging = LoggingTarget(day: session.day) }
+            }
         }
         .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
+        .sheet(item: $reviewing) { ReviewProgressView(day: $0.day) }
     }
 }
 
@@ -213,7 +218,7 @@ private struct StartBar: View {
     private var title: String {
         switch session?.state {
         case .inProgress: return "Continue"
-        case .finished: return "Review"
+        case .finished: return "Review progress"
         case .rest: return "Rest day"
         case .skipped: return "Skipped"
         default: return "Start"

@@ -70,10 +70,12 @@ private struct ExerciseScreen: View {
                 }
 
                 if let last = session.lastTime {
-                    HStack {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Last: \(Plan.formatSets(last.sets, unit: session.unit)) · \(Format.date(last.date))")
                             .font(.footnote).foregroundStyle(.secondary)
-                        Spacer()
+                        if session.readyToIncrease {
+                            Text("Top of the range, so ↺ suggests +\(Units.tidy(Logging.step(session.unit))) \(session.unit.rawValue)").font(.footnote).foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -259,7 +261,7 @@ struct RestBar: View {
             .task(id: deadline) {
                 let wait = deadline.timeIntervalSinceNow
                 if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-                if !Task.isCancelled { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+                if !Task.isCancelled { Haptics.success() }
             }
         }
     }
