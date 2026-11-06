@@ -123,8 +123,19 @@ private struct ExerciseScreen: View {
                     }
                 }
 
-                ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
-                    SetRow(session: session, index: i, row: row)
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Text("SET").frame(width: 24)
+                        Text("WEIGHT (\(session.unit.rawValue.uppercased()))").frame(maxWidth: .infinity)
+                        Text("REPS").frame(maxWidth: .infinity)
+                        Color.clear.frame(width: 30, height: 1)
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                    ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                        SetRow(session: session, index: i, row: row)
+                    }
                 }
             }
             .padding()
@@ -165,23 +176,25 @@ private struct SetRow: View {
 
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text("\(index + 1)").font(.headline).frame(width: 22)
+                Text("\(index + 1)").font(.headline).foregroundStyle(.secondary).frame(width: 24)
                 StepperField(
-                    placeholder: session.unit.rawValue,
+                    placeholder: "–",
                     text: Binding(get: { row.weight }, set: { session.set(index, weight: Logging.numeric($0, decimal: true)) }),
                     keyboard: .decimalPad,
                     minus: { session.set(index, weight: Plan.step(row.weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step)) },
                     plus: { session.set(index, weight: Plan.step(row.weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step)) }
                 )
                 StepperField(
-                    placeholder: "reps",
+                    placeholder: "–",
                     text: Binding(get: { row.reps }, set: { session.set(index, reps: Logging.numeric($0, decimal: false)) }),
                     keyboard: .numberPad,
                     minus: { let v = Plan.step(row.reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); session.set(index, reps: v == "0" ? "" : v) },
                     plus: { session.set(index, reps: Plan.step(row.reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1)) }
                 )
                 Image(systemName: logged ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(logged ? Color.green : Color.secondary)
+                    .font(.title2)
+                    .foregroundStyle(logged ? Color.green : Color.secondary.opacity(0.5))
+                    .frame(width: 30)
                     .accessibilityLabel(logged ? "Set logged" : "Set not logged")
             }
             if !logged, let hint, index == firstOpen {
@@ -190,10 +203,10 @@ private struct SetRow: View {
                 } label: {
                     Label("\(hint.weight.isEmpty ? "" : hint.weight + " × ")\(hint.reps)", systemImage: "arrow.counterclockwise").font(.footnote)
                 }
-                .padding(.leading, 30)
+                .padding(.leading, 32)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 
     private var firstOpen: Int { session.rows().firstIndex { !Plan.filled($0) } ?? 0 }
@@ -207,17 +220,30 @@ private struct StepperField: View {
     let plus: () -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
-            Button(action: minus) { Image(systemName: "minus").frame(width: 28, height: 36) }
-                .buttonStyle(.bordered)
+        HStack(spacing: 6) {
+            stepButton("minus", action: minus)
             TextField(placeholder, text: text)
                 .keyboardType(keyboard)
                 .multilineTextAlignment(.center)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 56)
-            Button(action: plus) { Image(systemName: "plus").frame(width: 28, height: 36) }
-                .buttonStyle(.bordered)
+                .font(.title3.weight(.semibold).monospacedDigit())
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+            stepButton("plus", action: plus)
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func stepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.footnote.weight(.bold))
+                .frame(width: 34, height: 34)
+                .background(Color(.tertiarySystemFill), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.accentColor)
+        .accessibilityLabel(symbol == "plus" ? "Increase" : "Decrease")
     }
 }
 
