@@ -5,6 +5,7 @@ import FirebaseCore
 struct Fit2216App: App {
     @State private var auth: AuthModel
     @State private var model: AppModel
+    @State private var rest = RestTimer()
 
     init() {
         // Firebase must be configured before anything touches Auth or Firestore, so the models are built after it.
@@ -18,6 +19,7 @@ struct Fit2216App: App {
             AppGate()
                 .environment(auth)
                 .environment(model)
+                .environment(rest)
         }
     }
 }

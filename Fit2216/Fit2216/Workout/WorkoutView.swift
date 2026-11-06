@@ -58,7 +58,7 @@ private struct DayRow: View {
 
 struct DayDetailView: View {
     let day: TemplateDay
-    @State private var showSoon = false
+    @State private var logging: LoggingTarget?
 
     var body: some View {
         List {
@@ -76,14 +76,14 @@ struct DayDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             if day.type != .rest && !day.exercises.isEmpty {
-                Button { showSoon = true } label: { Text("Start this workout").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6) }
+                Button { logging = LoggingTarget(day: day) } label: { Text("Start this workout").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .padding(.horizontal).padding(.vertical, 8)
                     .background(.bar)
             }
         }
-        .alert("Logging comes next", isPresented: $showSoon) { Button("OK", role: .cancel) {} }
+        .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
     }
 }
 

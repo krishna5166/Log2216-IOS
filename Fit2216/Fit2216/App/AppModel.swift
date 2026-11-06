@@ -19,10 +19,12 @@ final class AppModel {
     var phase: Phase = .idle
 
     @ObservationIgnored private let service = FirestoreService()
+    @ObservationIgnored private var uid: String?
 
     var now: Date { Date() }
 
     func load(uid: String) async {
+        self.uid = uid
         phase = .loading
         do {
             let doc = try await service.loadUserDoc(uid: uid)
@@ -36,7 +38,15 @@ final class AppModel {
         }
     }
 
+    /// Shows a changed workout at once and writes it to Firestore.
+    func save(_ log: WorkoutLog) {
+        let id = Logging.documentID(log)
+        if let i = logs.firstIndex(where: { Logging.documentID($0) == id }) { logs[i] = log } else { logs.insert(log, at: 0) }
+        if let uid { service.saveLog(uid: uid, log: log) }
+    }
+
     func reset() {
+        uid = nil
         plan = []; logs = []; weights = []; profile = Profile(); phase = .idle
     }
 

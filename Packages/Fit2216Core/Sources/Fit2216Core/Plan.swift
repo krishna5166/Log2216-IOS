@@ -124,6 +124,12 @@ public enum Plan {
         return out
     }
 
+    /// "100lb × 8, 8, 7": the first weight, then every set's reps.
+    public static func formatSets(_ sets: [SetLog], unit: WeightUnit = .kg) -> String {
+        let w = sets.first?.weight ?? ""
+        return (w.isEmpty ? "" : "\(w)\(unit.rawValue) × ") + sets.map(\.reps).joined(separator: ", ")
+    }
+
     /// True when every prescribed set hit the top of the rep range (suggest more weight).
     public static func readyToIncrease(_ ex: TemplateExercise, _ sets: [SetLog]?) -> Bool {
         guard let sets else { return false }

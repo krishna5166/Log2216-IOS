@@ -3,7 +3,7 @@ import Fit2216Core
 
 struct SummaryView: View {
     @Environment(AppModel.self) private var model
-    @State private var showSoon = false
+    @State private var logging: LoggingTarget?
 
     var body: some View {
         let now = model.now
@@ -30,9 +30,9 @@ struct SummaryView: View {
         }
         .navigationTitle("Summary")
         .safeAreaInset(edge: .bottom) {
-            StartBar(session: session) { showSoon = true }
+            StartBar(session: session) { if let session { logging = LoggingTarget(day: session.day) } }
         }
-        .alert("Logging comes next", isPresented: $showSoon) { Button("OK", role: .cancel) {} }
+        .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
     }
 }
 
