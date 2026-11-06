@@ -129,6 +129,7 @@ private struct ExerciseScreen: View {
             .padding()
         }
         .scrollDismissesKeyboard(.interactively)
+        .keyboardDoneButton()
         .safeAreaInset(edge: .bottom) { BottomBar(session: session, showList: $showList, close: { dismiss() }) }
         .sheet(isPresented: $showList) { ExerciseListSheet(session: session) }
         .sheet(isPresented: $showSwap) { SwapSheet(session: session) }

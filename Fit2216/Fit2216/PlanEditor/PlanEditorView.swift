@@ -197,6 +197,7 @@ struct ExerciseEditorView: View {
         }
         .navigationTitle(exercise.name.isEmpty ? "New exercise" : exercise.name)
         .navigationBarTitleDisplayMode(.inline)
+        .keyboardDoneButton()
     }
 
     private func addAlternative() {

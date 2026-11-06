@@ -26,6 +26,11 @@ final class AuthModel {
         _ = try await Auth.auth().signIn(withEmail: email, password: password)
     }
 
+    /// Sends a password-reset email. Firebase answers the same way whether or not the address has an account.
+    func sendPasswordReset(email: String) async throws {
+        try await Auth.auth().sendPasswordReset(withEmail: email)
+    }
+
     func signOut() {
         try? Auth.auth().signOut()
     }

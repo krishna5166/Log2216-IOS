@@ -26,6 +26,7 @@ struct WeighInSheet: View {
                 }
             }
             .navigationTitle("Log weight")
+            .keyboardDoneButton()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }

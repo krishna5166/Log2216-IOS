@@ -72,6 +72,7 @@ struct AboutMeView: View {
             }
         }
         .navigationTitle("Body and targets")
+        .keyboardDoneButton()
         .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Save") { model.saveProfile(current()); dismiss() } } }
         .onAppear(perform: load)
     }

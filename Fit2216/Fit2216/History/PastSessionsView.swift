@@ -83,6 +83,7 @@ struct PastSessionDetail: View {
             }
         }
         .navigationTitle(draft.dayName)
+        .keyboardDoneButton()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
