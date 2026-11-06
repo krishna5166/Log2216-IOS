@@ -99,3 +99,26 @@ final class LoggingRowsTests: XCTestCase {
         XCTAssertEqual(Plan.formatSets([SetLog(weight: "", reps: "12")]), "12")
     }
 }
+
+final class SwapAndProfileTests: XCTestCase {
+    func testASwapIsForTodayOnlyAndCanBeUndone() {
+        let log = WorkoutLog(date: "2026-10-28", dayName: "x", dayIndex: 1, sets: ["Bench": [SetLog(weight: "60", reps: "5")]])
+        let swapped = Logging.swapped(log, original: "Bench", to: "  Dumbbell press ")
+        XCTAssertEqual(swapped.swaps, ["Bench": "Dumbbell press"])
+        XCTAssertEqual(swapped.sets, log.sets) // the sets already typed stay under the plan's name
+        XCTAssertEqual(Plan.effectiveName(swapped, "Bench"), "Dumbbell press")
+        XCTAssertNil(Logging.swapped(swapped, original: "Bench", to: "Bench").swaps)
+        XCTAssertNil(Logging.swapped(swapped, original: "Bench", to: "").swaps)
+    }
+
+    func testProfileFieldsUseDottedPathsAndMarkRemovedOnesNil() {
+        let p = Profile(name: "Me", units: .imperial, gymUnit: .lb, heightCm: 175, goal: .lose, sex: .male, age: 30, weightKg: 80)
+        let targets = Nutrition.computeTargets(p, autoSessions: 3)
+        let f = p.updateFields(targets: targets)
+        XCTAssertEqual(f["profile.heightCm"] as? Double, 175)
+        XCTAssertEqual(f["profile.gymUnit"] as? String, "lb")
+        XCTAssertEqual(f["profile.proteinMin"] as? Int, targets?.proteinMin)
+        XCTAssertTrue(f.keys.contains("profile.targetDate")); XCTAssertNil(f["profile.targetDate"] ?? nil) // present with no value = remove it
+        XCTAssertFalse(p.updateFields(targets: nil).keys.contains("profile.proteinMin"))
+    }
+}

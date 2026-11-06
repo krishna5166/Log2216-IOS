@@ -47,6 +47,16 @@ public enum Logging {
         day.exercises.firstIndex { setsLogged(log, exercise: $0.name) < $0.sets } ?? 0
     }
 
+    /// A swap for today only: `original` is done as `replacement`. Naming the original again (or leaving it empty) removes the swap. The weekly plan is not touched.
+    public static func swapped(_ log: WorkoutLog, original: String, to replacement: String) -> WorkoutLog {
+        var out = log
+        var swaps = out.swaps ?? [:]
+        let name = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty && name != original { swaps[original] = name } else { swaps.removeValue(forKey: original) }
+        out.swaps = swaps.isEmpty ? nil : swaps
+        return out
+    }
+
     public static func finished(_ log: WorkoutLog) -> WorkoutLog { var l = log; l.done = true; l.skipped = false; return l }
     public static func skipped(_ log: WorkoutLog) -> WorkoutLog { var l = log; l.skipped = true; l.done = false; return l }
 
