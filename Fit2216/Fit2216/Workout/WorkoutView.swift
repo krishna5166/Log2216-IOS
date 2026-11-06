@@ -17,6 +17,9 @@ struct WorkoutView: View {
             }
         }
         .navigationTitle("Workout")
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) { NavigationLink("Edit plan") { PlanEditorView() } }
+        }
     }
 }
 

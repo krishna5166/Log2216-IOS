@@ -122,3 +122,22 @@ final class SwapAndProfileTests: XCTestCase {
         XCTAssertFalse(p.updateFields(targets: nil).keys.contains("profile.proteinMin"))
     }
 }
+
+final class RenameTests: XCTestCase {
+    private let day = TemplateDay(day: 1, name: "Push", exercises: [TemplateExercise(name: "Bench", sets: 3, reps: "5"), TemplateExercise(name: "Press", sets: 3, reps: "5")])
+
+    func testRenamingAnExerciseKeepsTheRestAndRefusesDuplicatesOrEmptyNames() {
+        XCTAssertEqual(Logging.renamingExercise(day, from: "Bench", to: " Dumbbell press ")?.exercises.map(\.name), ["Dumbbell press", "Press"])
+        XCTAssertNil(Logging.renamingExercise(day, from: "Bench", to: "Press"))
+        XCTAssertNil(Logging.renamingExercise(day, from: "Bench", to: "  "))
+        XCTAssertNil(Logging.renamingExercise(day, from: "Nope", to: "X"))
+        XCTAssertEqual(Logging.renamingExercise(day, from: "Bench", to: "Bench"), day)
+    }
+
+    func testMovingSetsFollowsAPermanentRename() {
+        let log = WorkoutLog(date: "2026-10-28", dayName: "Push", dayIndex: 1, sets: ["Bench": [SetLog(weight: "60", reps: "5")]], swaps: ["Bench": "Dips"])
+        let moved = Logging.movingSets(log, from: "Bench", to: "Dumbbell press")
+        XCTAssertEqual(moved.sets["Dumbbell press"]?.count, 1); XCTAssertNil(moved.sets["Bench"]); XCTAssertNil(moved.swaps)
+        XCTAssertEqual(Logging.movingSets(log, from: "Bench", to: "Bench").sets, log.sets)
+    }
+}

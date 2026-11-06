@@ -57,6 +57,25 @@ public enum Logging {
         return out
     }
 
+    /// The day with one exercise renamed (for "swap always"). Nil when the new name is empty or already used by another exercise in the day.
+    public static func renamingExercise(_ day: TemplateDay, from: String, to: String) -> TemplateDay? {
+        let name = to.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let i = day.exercises.firstIndex(where: { $0.name == from }) else { return nil }
+        if name != from && day.exercises.contains(where: { $0.name == name }) { return nil }
+        var out = day
+        out.exercises[i].name = name
+        return out
+    }
+
+    /// Moves the sets typed under `from` to `to` and drops today's swap for `from`, after a permanent rename.
+    public static func movingSets(_ log: WorkoutLog, from: String, to: String) -> WorkoutLog {
+        var out = log
+        if from != to, let rows = out.sets.removeValue(forKey: from) { out.sets[to] = rows }
+        out.swaps?.removeValue(forKey: from)
+        if out.swaps?.isEmpty == true { out.swaps = nil }
+        return out
+    }
+
     public static func finished(_ log: WorkoutLog) -> WorkoutLog { var l = log; l.done = true; l.skipped = false; return l }
     public static func skipped(_ log: WorkoutLog) -> WorkoutLog { var l = log; l.skipped = true; l.done = false; return l }
 

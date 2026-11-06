@@ -1,16 +1,37 @@
 import SwiftUI
 import Fit2216Core
 
-/// Strength and volume by body part, not by workout. Each muscle opens its own detail.
+/// Strength and volume by body part, body weight against your goal, and how consistent you have been.
 struct InsightsView: View {
     @Environment(AppModel.self) private var model
+    @State private var showWeighIn = false
+    @State private var macroDays: [(date: String, pct: Int?)] = []
 
     var body: some View {
         let now = model.now
         let stats = MuscleInsights.stats(plan: model.plan, logs: model.logs, now)
         let flags = MuscleInsights.balance(stats: stats, plan: model.plan)
+        let weights = model.weights.sorted { $0.date < $1.date }
+        let weeks = Insights.weeklyStats(model.logs, plan: model.plan, now, weeks: Insights.chartWeeks(model.logs, now, max: 8))
+        let records = Insights.recentPRs(Insights.liftHistory(model.logs), now)
+        let baseline = Insights.baselineWeight(heightCm: model.profile.heightCm, targetWeightKg: model.profile.targetWeightKg)
 
         List {
+            Section("Body weight") {
+                if weights.count >= 2 {
+                    WeightChart(entries: weights, unit: model.profile.bodyUnit, baselineKg: baseline?.kg, goal: model.profile.goal)
+                    legend(goal: model.profile.goal, hasBaseline: baseline != nil)
+                } else {
+                    Text("Log at least two days of weight to see your graph.").font(.footnote).foregroundStyle(.secondary)
+                }
+                if let summary = Summary.body(weights: weights, profile: model.profile, now) {
+                    LabeledContent("Latest", value: Format.weight(kg: summary.latestKg, unit: model.profile.bodyUnit))
+                    if let pace = summary.perWeekKg { LabeledContent("Pace", value: paceText(pace)) }
+                }
+                Button("Log weight") { showWeighIn = true }
+                NavigationLink("All weigh-ins") { WeightHistoryView() }
+            }
+
             if !flags.isEmpty {
                 Section("Balance") {
                     ForEach(flags, id: \.title) { flag in
@@ -21,6 +42,7 @@ struct InsightsView: View {
                     }
                 }
             }
+
             Section("Strength by muscle") {
                 if stats.isEmpty {
                     Text("Log a few workouts and your muscles show up here.").foregroundStyle(.secondary)
@@ -34,8 +56,57 @@ struct InsightsView: View {
                     }
                 }
             }
+
+            if !records.isEmpty {
+                Section("Recent personal bests") {
+                    ForEach(records, id: \.name) { r in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.name).font(.headline)
+                            Text("\(Format.weight(kg: r.weight, unit: model.profile.gymUnit)) × \(Int(r.reps)) · \(Format.date(r.date))").font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
+            Section("Workouts per week") {
+                WeeklyWorkoutsChart(weeks: weeks)
+                let counts = Insights.weekCounts(model.plan, model.logs, now)
+                LabeledContent("This week", value: "\(counts.done) of \(counts.planned)")
+            }
+
+            if macroDays.contains(where: { $0.pct != nil }) {
+                Section("Food targets, last 7 days") { MacroDaysChart(days: macroDays) }
+            }
+
+            Section { NavigationLink("Past sessions") { PastSessionsView() } }
         }
         .navigationTitle("Insights")
+        .sheet(isPresented: $showWeighIn) { WeighInSheet() }
+        .task { await loadMacroDays() }
+    }
+
+    private func loadMacroDays() async {
+        guard let uid = model.uid else { return }
+        let today = Dates.localDate(model.now)
+        let from = Dates.addDays(today, -6)
+        let pcts = (try? await model.firestore.loadFoodPercents(uid: uid, from: from)) ?? [:]
+        macroDays = (0..<7).map { i in let d = Dates.addDays(from, i); return (date: d, pct: pcts[d]) }
+    }
+
+    private func paceText(_ kgPerWeek: Double) -> String {
+        let v = Units.fromKg(kgPerWeek, to: model.profile.bodyUnit)
+        return "\(v >= 0 ? "+" : "")\(String(format: "%.1f", v)) \(model.profile.bodyUnit.rawValue) a week"
+    }
+
+    private func legend(goal: Goal?, hasBaseline: Bool) -> some View {
+        HStack(spacing: 12) {
+            Label("7-day average", systemImage: "line.diagonal").font(.caption2)
+            if hasBaseline {
+                Label("Right side of target", systemImage: "square.fill").foregroundStyle(.green.opacity(0.6)).font(.caption2)
+                Label("Wrong side", systemImage: "square.fill").foregroundStyle(.red.opacity(0.6)).font(.caption2)
+            }
+        }
+        .foregroundStyle(.secondary)
     }
 }
 
@@ -78,10 +149,13 @@ private struct MuscleRow: View {
 }
 
 struct MuscleDetailView: View {
+    @Environment(AppModel.self) private var model
     let stat: MuscleStat
     let unit: WeightUnit
 
     var body: some View {
+        let points = stat.topLift.flatMap { Insights.liftHistory(model.logs)[$0] } ?? []
+
         List {
             Section("Volume") {
                 LabeledContent("This week", value: "\(String(format: "%.1f", stat.setsThisWeek)) sets")
@@ -94,6 +168,7 @@ struct MuscleDetailView: View {
             Section("Strength") {
                 if let top = stat.topLift {
                     LabeledContent("Main lift", value: top)
+                    if points.count >= 2 { LiftChart(points: points, unit: unit) }
                     if let change = stat.strengthChangeKg, let pct = stat.strengthChangePercent {
                         LabeledContent("Estimated max, last 8 weeks", value: "\(change >= 0 ? "+" : "")\(Units.tidy(Units.fromKg(change, to: unit))) \(unit.rawValue) (\(String(format: "%.0f", pct))%)")
                     } else {

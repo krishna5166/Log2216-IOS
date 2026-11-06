@@ -52,6 +52,8 @@ private struct ExerciseScreen: View {
     @Environment(\.dismiss) private var dismiss
     let session: LoggingSession
     @State private var showList = false
+    @State private var showSwap = false
+    @State private var confirmSkip = false
 
     var body: some View {
         let e = session.exercise
@@ -63,6 +65,7 @@ private struct ExerciseScreen: View {
                     Text(session.shownName).font(.title.bold())
                     Text("\(e.sets) × \(e.reps) reps · \(session.loggedCount) of \(e.sets) done" + (e.optional == true ? " · optional" : ""))
                         .font(.subheadline).foregroundStyle(.secondary)
+                    if session.isSwapped { Text("Swapped today from \(e.name)").font(.footnote).foregroundStyle(.secondary) }
                     ProgressView(value: Double(session.loggedCount), total: Double(max(e.sets, 1)))
                 }
 
@@ -83,6 +86,21 @@ private struct ExerciseScreen: View {
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) { BottomBar(session: session, showList: $showList, close: { dismiss() }) }
         .sheet(isPresented: $showList) { ExerciseListSheet(session: session) }
+        .sheet(isPresented: $showSwap) { SwapSheet(session: session) }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button { showSwap = true } label: { Label("Swap exercise", systemImage: "arrow.triangle.2.circlepath") }
+                    Button { session.finish(); dismiss() } label: { Label("Finish workout", systemImage: "checkmark.circle") }
+                    Button(role: .destructive) { confirmSkip = true } label: { Label("Skip this workout", systemImage: "forward") }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .accessibilityLabel("More")
+            }
+        }
+        .confirmationDialog("Skip \(session.day.name) today?", isPresented: $confirmSkip, titleVisibility: .visible) {
+            Button("Skip workout", role: .destructive) { session.skipWorkout(); dismiss() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 }
 
@@ -251,4 +269,56 @@ struct RestBar: View {
     LoggingView(day: SampleData.plan[0])
         .environment(AppModel.sample())
         .environment(RestTimer())
+}
+
+/// Swap the open exercise for today only, or for good in the plan.
+private struct SwapSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var model
+    let session: LoggingSession
+    @State private var query = ""
+
+    private var suggestions: [String] {
+        let current = session.exercise
+        let fromPlan = model.plan.flatMap { $0.exercises.map(\.name) }
+        let pool = Array(Set((current.alternatives ?? []) + fromPlan)).sorted()
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        return pool.filter { $0 != current.name && (q.isEmpty || $0.lowercased().contains(q)) }.prefix(10).map { $0 }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Replace \(session.exercise.name) with") {
+                    TextField("Exercise name", text: $query).textInputAutocapitalization(.sentences)
+                }
+                if !suggestions.isEmpty {
+                    Section("Suggestions") {
+                        ForEach(suggestions, id: \.self) { name in
+                            Button(name) { query = name }.foregroundStyle(.primary)
+                        }
+                    }
+                }
+                Section {
+                    Button("Today only") { session.swapToday(to: query); dismiss() }
+                        .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if !session.isCopiedTemplate {
+                        Button("Always (change the plan)") {
+                            if let renamed = session.swapAlways(to: query) {
+                                model.savePlan(model.plan.map { $0.day == renamed.day ? renamed : $0 })
+                                dismiss()
+                            }
+                        }
+                        .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    if session.isSwapped { Button("Undo today's swap", role: .destructive) { session.swapToday(to: ""); dismiss() } }
+                } footer: {
+                    Text("Today only leaves your plan alone. Always renames it in the plan; history stays under the old name.")
+                }
+            }
+            .navigationTitle("Swap exercise")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } } }
+        }
+    }
 }
