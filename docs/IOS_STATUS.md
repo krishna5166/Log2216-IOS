@@ -34,3 +34,9 @@ Native SwiftUI app on the same backend as the web app (Firebase Auth + Firestore
 - The Macros diary lives in Firestore (`users/{uid}/foodDays/{date}`), so it syncs between devices. The web app kept its diary on the device only, so the iPhone diary starts empty.
 - Logic lives in `Packages/Fit2216Core` (Foundation only) with the same rules and test cases as the web app. `swift test` there.
 - Apple Health is not connected (decision: Apple Fitness owns the rings).
+
+## Review notes (what a deep pass against the web app found and fixed)
+- Data safety: nothing is written before your data has loaded (logging, Macros); a workout is read fresh from the server when opened, so one started on the web app is continued, not overwritten; profile writes touch only the fields that changed; the exercise library only grows; weekday and set counts from bad data are clamped or dropped.
+- Offline: opens from the phone's own copy first, then refreshes; a notice shows when changes are waiting to sync or were refused.
+- Parity added after the review: personal-best banner, earlier sessions list, numeric input cleanup, Next up after finishing, edit a finished workout from Review progress, global rest timer bar, forgot password, Done button above number keypads, midnight rollover.
+- Known gaps / suggestions: cursor auto-advance to the next set, wheel entry, a Live Activity for the rest timer, Dynamic Type at the largest sizes, copy-workout between accounts (needs the Circle link), Apple Health.

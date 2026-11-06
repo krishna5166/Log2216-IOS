@@ -67,7 +67,8 @@ struct LoggingView: View {
         }
         guard session == nil else { return }
         let log = Logging.open(day: day, date: date, existing: existing, gymUnit: model.profile.gymUnit)
-        let followed = Logging.day(for: log, plan: model.plan, fallback: day)
+        var followed = Logging.day(for: log, plan: model.plan, fallback: day)
+        if followed.exercises.isEmpty { followed = day } // a copied day with no exercises must not leave the screen with nothing to open
         session = LoggingSession(day: followed, log: log, history: model.logs, timer: timer) { model.save($0) }
         RestTimer.requestPermission()
     }
