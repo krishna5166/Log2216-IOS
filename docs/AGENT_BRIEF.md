@@ -17,12 +17,14 @@ Fit2216: a private two-person workout, body-weight and macros app. The web versi
 - Strength tracking blends two metrics: total weekly volume (weight × reps) as the main signal, with estimated one-RM as a secondary reference. One-RM alone is too peak-focused; volume alone rewards junk volume.
 - Insights page does NOT show individual per-lift graphs. Per-lift trend (sparkline) lives on the exercise's set page during a workout, so the user sees progressive overload at the moment of loading the bar.
 - The set-page sparkline shows that lift's **overall progress** (volume and intensity blended across all logged sets for that lift), not one-RM alone. Visually: a faint horizontal baseline at the midline of the sparkline area plus a very light fill beneath the curve — no axes, labels, gridlines, or numbers.
+- Precompute the blended strength metric in core as a weekly series rather than recalculating on every view, so the Insights dropdown and the set-page sparkline always come from the same source.
+- Accessibility: set circles and the Next button support VoiceOver with clear labels (e.g. "Squat set two of four, logged eighty kilos for five"). Secondary text on the dark theme must be at least sixty percent white for contrast.
 
 ## Navigation (iOS)
 - **Summary** (landing tab): activity rings at the top (HealthKit read-only, or a custom SwiftUI approximation if HealthKit entitlement is not yet wired — see open items). Below the rings, today's session card: day name, target muscles, planned sets, sets-done vs planned, streak count. Fixed Start button anchored at the bottom of the screen above the tab bar (never scrolls off). Tapping the card opens the deeper progress view.
 - **Workout** tab: the planned schedule — list of upcoming days with muscle focus, tap a day for the full session (exercises, sets, reps, weights).
 - **Macros** tab: carried over from the PWA as-is; layout tweaks later. No "Add again" history chips (removed by request).
-- **Insights** tab: overall strength progress graph as the headline. A dropdown filters the graph: Overall (default), Lower body, Upper body, Chest, Legs, and other muscle groups the core already categorizes. Each option plots that group's weekly blended metric (volume main line, one-RM secondary). Muscle groups below a minimum session count should be hidden or grayed out to avoid noisy lines. Also carries weekly recap, consistency grid, balance flags, PRs, and food-target chart from the PWA.
+- **Insights** tab: overall strength progress graph as the headline. A dropdown filters the graph: Overall (default), Lower body, Upper body, Chest, Legs, and other muscle groups the core already categorizes. Each option plots that group's weekly blended metric (volume main line, one-RM secondary). Hide or gray out groups below a minimum session count to avoid noisy lines. Also carries weekly recap, consistency grid, balance flags, PRs, and food-target chart from the PWA.
 - Settings moves to a **profile icon** top-right (standard iOS pattern). Tab bar: Summary, Workout, Macros, Insights.
 
 ## State
@@ -44,10 +46,19 @@ Reference implementation of every rule: web code in `app/src/lib/*.ts` of the we
    - Next button pinned at the bottom to advance to the following exercise; Previous available too.
    - Rest timer pill retained from the current redesign.
    Reference: Apple Fitness lock screen during a strength workout (active calories, total calories, heart rate, elapsed timer, set count).
-7. Insights empty states for zero weights or zero logs.
-8. README title still says "iPhone and Apple Watch" — minor cleanup.
-9. AGENT_BRIEF state block must stay current as the app evolves.
-10. Real-phone testing pass, then TestFlight to Sri, then unlisted listing.
+7. **Past-data compatibility pass** — exercise renames (e.g. "Romanian squat" → "Squat") split lift history into separate buckets because core keys off the exact name string. Build a canonical-name map in Fit2216Core that resolves old names, abbreviations, and near-duplicates to current ones at read time so past sessions, PRs, lift trends, and sparklines stitch together automatically. Audit the web reference for other silent mismatches too: unit labels, muscle tags, optional flags — anything the iOS models assume is identical but may differ in stored history.
+8. **One-time Firestore migration tool** — rewrite old logs to canonical names in storage, not just at read time. Clean stored data matters for CSV export and for sharing with Sri.
+9. **Version the exercise catalog** — add a stable ID field alongside the display name now; every log references the ID, not the string. Future renames become trivial instead of another compatibility patch.
+10. **Drift detector on launch** — compare the local exercise list against what's in Firestore and flag mismatches so silent data drift surfaces instead of hiding in trends.
+11. Insights empty states for zero weights or zero logs.
+12. README title still says "iPhone and Apple Watch" — minor cleanup.
+13. AGENT_BRIEF state block must stay current as the app evolves.
+14. Real-phone testing pass, then TestFlight to Sri, then unlisted listing. Bugs found in testing get fixed in a batch, not one at a time.
+
+## Polish sprint (feature, behavioral, platform gaps vs PWA)
+- **Feature gaps**: HealthKit rings, copy-workout button (covered in open items above).
+- **Behavioral gaps**: macros auto-retry on reconnect (covered in open items above); any other PWA behavior the iOS port hasn't matched yet — compare against the web app's daily-use edge-case fixes.
+- **Platform gaps**: VoiceOver labels on set circles and Next button; secondary text contrast at least sixty percent white on the dark theme.
 
 ## What you may do
 - Read code and report problems. For each finding give file and line, a concrete input that triggers it, and what the user would see. Label every finding "read from code" or "ran it".
