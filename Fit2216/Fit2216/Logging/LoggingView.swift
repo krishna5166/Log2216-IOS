@@ -106,8 +106,8 @@ private struct ExerciseScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 header(e)
-                setPicker
-                if let i = current, i < rows.count { metrics(i) } else { allDone }
+                setStack
+                trend
                 extras
             }
             .padding(.horizontal, 20)
@@ -149,81 +149,129 @@ private struct ExerciseScreen: View {
     // MARK: Pieces
 
     private func header(_ e: TemplateExercise) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("EXERCISE \(session.index + 1) OF \(session.day.exercises.count)")
-                .font(.caption.weight(.bold)).foregroundStyle(Theme.lime)
-            Text(session.shownName)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .lineLimit(2).minimumScaleFactor(0.7)
-            Text("\(e.sets) × \(e.reps) reps" + (e.optional == true ? " · optional" : ""))
-                .font(.subheadline).foregroundStyle(.secondary)
-            if session.isSwapped {
-                Text("Swapped today from \(e.name)").font(.footnote).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var setPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
-                    let logged = Plan.filled(row)
-                    let isCurrent = i == current
-                    Button {
-                        selected = i
-                        Haptics.light()
-                    } label: {
-                        Text("\(i + 1)")
-                            .font(.headline.monospacedDigit())
-                            .frame(width: 44, height: 44)
-                            .foregroundStyle(logged ? Color.black : (isCurrent ? Theme.lime : Color.white))
-                            .background(Circle().fill(logged ? Theme.lime : Color.white.opacity(0.12)))
-                            .overlay(Circle().stroke(Theme.lime, lineWidth: isCurrent && !logged ? 2 : 0))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Set \(i + 1)" + (logged ? ", logged" : ""))
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("EXERCISE \(session.index + 1) OF \(session.day.exercises.count)")
+                    .font(.caption.weight(.bold)).foregroundStyle(Theme.lime)
+                Text(session.shownName)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .lineLimit(2).minimumScaleFactor(0.7)
+                Text("\(e.sets) × \(e.reps) reps" + (e.optional == true ? " · optional" : ""))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                if session.isSwapped {
+                    Text("Swapped today from \(e.name)").font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            Spacer(minLength: 8)
+            elapsed
         }
     }
 
-    private func metrics(_ i: Int) -> some View {
+    /// Time since the workout screen opened, in yellow like the Fitness stopwatch.
+    private var elapsed: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(Plan.clock(max(0, context.date.timeIntervalSince(session.startedAt))))
+                .font(.system(size: 30, weight: .medium, design: .rounded).monospacedDigit())
+                .foregroundStyle(.yellow)
+                .accessibilityLabel("Workout time \(Plan.clock(max(0, context.date.timeIntervalSince(session.startedAt))))")
+        }
+    }
+
+    /// Every planned set, stacked. The set you are on is open with big numbers; the others are one line each.
+    private var setStack: some View {
+        VStack(spacing: 10) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                if i == current { activeSet(i) } else { compactSet(i, row) }
+            }
+            if current == nil { allDone }
+        }
+    }
+
+    private func numberCircle(_ i: Int, logged: Bool, isCurrent: Bool) -> some View {
+        Text("\(i + 1)")
+            .font(.headline.monospacedDigit())
+            .frame(width: 40, height: 40)
+            .foregroundStyle(logged ? Color.black : (isCurrent ? Theme.lime : Color.white))
+            .background(Circle().fill(logged ? Theme.lime : Color.white.opacity(0.12)))
+            .overlay(Circle().stroke(Theme.lime, lineWidth: isCurrent && !logged ? 2 : 0))
+    }
+
+    private func compactSet(_ i: Int, _ row: SetLog) -> some View {
+        let logged = Plan.filled(row)
+        let unit = session.unit.rawValue
+        return Button {
+            selected = i
+            Haptics.light()
+        } label: {
+            HStack(spacing: 14) {
+                numberCircle(i, logged: logged, isCurrent: false)
+                if logged {
+                    BigValue(value: row.weight.isEmpty ? "–" : row.weight, unit: row.weight.isEmpty ? "" : unit, color: .white, size: 26)
+                    Text("× \(row.reps)").font(.system(size: 22, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+                } else {
+                    Text("Not logged yet").font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if logged { Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(Theme.lime) }
+            }
+            .padding(12)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(session.shownName) set \(i + 1) of \(rows.count), "
+                            + (logged ? "logged \(row.weight.isEmpty ? "no weight" : row.weight + " " + unit) for \(row.reps)" : "not logged"))
+        .accessibilityHint("Opens this set to edit")
+    }
+
+    private func activeSet(_ i: Int) -> some View {
         let logged = Plan.filled(rows[i])
         let hint = session.hint(for: i)
         let step = Logging.step(session.unit)
 
-        return VStack(alignment: .leading, spacing: 24) {
-            Text(logged ? "SET \(i + 1) · LOGGED" : "SET \(i + 1) OF \(rows.count)")
-                .font(.caption.weight(.bold)).foregroundStyle(.secondary)
+        return HStack(alignment: .top, spacing: 12) {
+            numberCircle(i, logged: logged, isCurrent: true)
+            VStack(alignment: .leading, spacing: 16) {
+                bigMetric("Weight (\(session.unit.rawValue))", text: $weight, keyboard: .decimalPad,
+                          minus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step) },
+                          plus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step) })
 
-            bigMetric("Weight (\(session.unit.rawValue))", text: $weight, keyboard: .decimalPad,
-                      minus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step) },
-                      plus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step) })
+                bigMetric("Reps", text: $reps, keyboard: .numberPad,
+                          minus: { let v = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); reps = v == "0" ? "" : v },
+                          plus: { reps = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1) })
 
-            bigMetric("Reps", text: $reps, keyboard: .numberPad,
-                      minus: { let v = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); reps = v == "0" ? "" : v },
-                      plus: { reps = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1) })
-
-            Button { logSet(i) } label: {
-                Text(logged ? "Update set" : "Log set")
-                    .font(.title3.bold())
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 58)
-                    .foregroundStyle(.black)
-                    .background(Theme.lime, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(!canLog)
-            .opacity(canLog ? 1 : 0.35)
-
-            if logged {
-                Button("Clear this set", role: .destructive) {
-                    session.set(i, weight: "", reps: "")
-                    selected = nil
+                Button { logSet(i) } label: {
+                    Text(logged ? "Update set" : "Log set").limeCapsule(height: 54, enabled: canLog)
                 }
-                .font(.footnote)
+                .buttonStyle(.plain)
+                .disabled(!canLog)
+                .accessibilityLabel("\(logged ? "Update" : "Log") \(session.shownName) set \(i + 1)")
+
+                if logged {
+                    Button("Clear this set", role: .destructive) {
+                        session.set(i, weight: "", reps: "")
+                        selected = nil
+                    }
+                    .font(.footnote)
+                }
             }
         }
+        .padding(14)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Theme.lime.opacity(0.8), lineWidth: 1.5))
+    }
+
+    /// The lift's overall progress as a quiet sparkline, so you see whether today's weight keeps the trend going.
+    private var trend: some View {
+        let values = session.strength().weeks.map(\.score)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("YOUR TREND").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+            if values.compactMap({ $0 }).count >= 2 {
+                Sparkline(values: values).frame(height: 64)
+            } else {
+                Text("Log this lift over a few weeks to see your trend.").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func bigMetric(_ label: String, text: Binding<String>, keyboard: UIKeyboardType,
@@ -232,7 +280,7 @@ private struct ExerciseScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 TextField("0", text: text)
                     .keyboardType(keyboard)
-                    .font(.system(size: 68, weight: .medium, design: .rounded))
+                    .font(.system(size: 52, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
                 Text(label).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
@@ -249,8 +297,8 @@ private struct ExerciseScreen: View {
             Haptics.light()
         } label: {
             Image(systemName: symbol)
-                .font(.title3.weight(.bold))
-                .frame(width: 56, height: 56)
+                .font(.body.weight(.bold))
+                .frame(width: 46, height: 46)
                 .background(Circle().fill(Color.white.opacity(0.12)))
         }
         .buttonStyle(.plain)

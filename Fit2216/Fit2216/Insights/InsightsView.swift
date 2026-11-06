@@ -23,6 +23,8 @@ struct InsightsView: View {
 
         ScrollView {
             VStack(spacing: 14) {
+            StrengthCard(series: Strength.series(plan: model.plan, logs: model.logs, now))
+
             SectionCard("Body weight") {
                 if weights.count >= 2 {
                     WeightChart(entries: weights, unit: model.profile.bodyUnit, baselineKg: baseline?.kg, goal: model.profile.goal)

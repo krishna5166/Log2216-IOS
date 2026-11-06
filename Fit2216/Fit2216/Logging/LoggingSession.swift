@@ -11,6 +11,8 @@ final class LoggingSession {
     let history: [WorkoutLog]
     let unit: WeightUnit
     var index: Int
+    /// When the workout screen opened, for the elapsed timer.
+    let startedAt = Date()
     /// Each lift's earlier sessions (workouts before today), computed once: used to spot a new personal best.
     let lifts: [String: [LiftPoint]]
 
@@ -40,6 +42,12 @@ final class LoggingSession {
     /// The sessions before the last one (up to two more), for the "earlier sessions" list.
     var earlier: [(date: String, sets: [SetLog])] {
         Array(Plan.recentSessions(history, name: shownName, before: log.date, unit: unit, count: 3).dropFirst())
+    }
+
+    /// This lift's overall progress (volume and intensity blended), with today's sets included as you log them.
+    func strength() -> StrengthSeries {
+        let id = Logging.documentID(log)
+        return Strength.lift(shownName, plan: [day], logs: history.filter { Logging.documentID($0) != id } + [log], Date())
     }
 
     var canFinish: Bool { Logging.canFinish(log) }
