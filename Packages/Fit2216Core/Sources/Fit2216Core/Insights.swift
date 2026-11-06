@@ -37,7 +37,7 @@ public struct Projection: Equatable, Sendable {
 public enum Insights {
     /// Like JavaScript's parseFloat: the leading number, else 0.
     static func num(_ s: String) -> Double {
-        var scanner = Scanner(string: s)
+        let scanner = Scanner(string: s)
         scanner.charactersToBeSkipped = .whitespaces
         guard let v = scanner.scanDouble(), v.isFinite else { return 0 }
         return v
