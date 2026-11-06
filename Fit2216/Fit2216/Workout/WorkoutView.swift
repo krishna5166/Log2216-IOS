@@ -47,10 +47,10 @@ private struct DayRow: View {
 
     private var badge: (String, Color)? {
         switch state {
-        case .done: return ("Done", .green)
-        case .missed: return ("Missed", .red)
-        case .today: return ("Today", .blue)
-        case .skipped: return ("Skipped", .orange)
+        case .done: return ("Done", Color.green)
+        case .missed: return ("Missed", Color.red)
+        case .today: return ("Today", Color.blue)
+        case .skipped: return ("Skipped", Color.orange)
         default: return nil
         }
     }
