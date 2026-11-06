@@ -30,6 +30,7 @@ struct LoggingView: View {
                     ProgressView("Loading…")
                 }
             }
+            .background(Color.black.ignoresSafeArea())
             .navigationTitle(day.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -40,6 +41,8 @@ struct LoggingView: View {
             }
         }
         .task(id: model.canLog) { await start() }
+        .preferredColorScheme(.dark)
+        .tint(Theme.lime)
     }
 
     /// The workout as it is on the server right now (waiting at most a couple of seconds), so one started on another device is continued, not overwritten.
@@ -80,71 +83,52 @@ private struct ExerciseScreen: View {
     @State private var showList = false
     @State private var showSwap = false
     @State private var confirmSkip = false
+    @State private var selected: Int?
+    @State private var weight = ""
+    @State private var reps = ""
+
+    private var rows: [SetLog] { session.rows() }
+    private var firstOpen: Int? { rows.firstIndex { !Plan.filled($0) } }
+    /// The set on screen: the one you tapped, else the first one not logged yet (nil when all are done).
+    private var current: Int? {
+        if let selected, selected < rows.count { return selected }
+        return firstOpen
+    }
+    private var draftKey: String {
+        guard let i = current, i < rows.count else { return "\(session.index)|none" }
+        return "\(session.index)|\(session.shownName)|\(i)|\(rows[i].weight)/\(rows[i].reps)"
+    }
+    private var canLog: Bool { (Int(reps) ?? 0) > 0 }
 
     var body: some View {
         let e = session.exercise
-        let rows = session.rows()
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.shownName).font(.title.bold())
-                    Text("\(e.sets) × \(e.reps) reps · \(session.loggedCount) of \(e.sets) done" + (e.optional == true ? " · optional" : ""))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    if session.isSwapped { Text("Swapped today from \(e.name)").font(.footnote).foregroundStyle(.secondary) }
-                    ProgressView(value: Double(session.loggedCount), total: Double(max(e.sets, 1)))
-                }
-
-                if let pb = session.personalBest {
-                    Label("New personal best: \(Units.tidy(pb.weight)) \(session.unit.rawValue) × \(Int(pb.reps)) (estimated max up \(Units.tidy(pb.gain)) \(session.unit.rawValue))", systemImage: "trophy.fill")
-                        .font(.subheadline.bold()).foregroundStyle(.orange)
-                }
-
-                if let last = session.lastTime {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Last: \(Plan.formatSets(last.sets, unit: session.unit)) · \(Format.date(last.date))")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        if session.readyToIncrease {
-                            Text("Top of the range, so ↺ suggests +\(Units.tidy(Logging.step(session.unit))) \(session.unit.rawValue)").font(.footnote).foregroundStyle(.secondary)
-                        }
-                        if !session.earlier.isEmpty {
-                            DisclosureGroup("Earlier sessions") {
-                                ForEach(session.earlier, id: \.date) { s in
-                                    HStack {
-                                        Text(Format.date(s.date)).foregroundStyle(.secondary)
-                                        Spacer()
-                                        Text(Plan.formatSets(s.sets, unit: session.unit))
-                                    }
-                                    .font(.footnote)
-                                }
-                            }
-                            .font(.footnote)
-                        }
-                    }
-                }
-
-                VStack(spacing: 10) {
-                    HStack(spacing: 8) {
-                        Text("SET").frame(width: 24)
-                        Text("WEIGHT (\(session.unit.rawValue.uppercased()))").frame(maxWidth: .infinity)
-                        Text("REPS").frame(maxWidth: .infinity)
-                        Color.clear.frame(width: 30, height: 1)
-                    }
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                    ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
-                        SetRow(session: session, index: i, row: row)
-                    }
-                }
+            VStack(alignment: .leading, spacing: 28) {
+                header(e)
+                setPicker
+                if let i = current, i < rows.count { metrics(i) } else { allDone }
+                extras
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
         .keyboardDoneButton()
         .safeAreaInset(edge: .bottom) { BottomBar(session: session, showList: $showList, close: { dismiss() }) }
         .sheet(isPresented: $showList) { ExerciseListSheet(session: session) }
         .sheet(isPresented: $showSwap) { SwapSheet(session: session) }
+        .onChange(of: draftKey, initial: true) { loadDrafts() }
+        .onChange(of: session.index) { selected = nil }
+        .onChange(of: weight) { _, v in
+            let n = Logging.numeric(v, decimal: true)
+            if n != v { weight = n }
+        }
+        .onChange(of: reps) { _, v in
+            let n = Logging.numeric(v, decimal: false)
+            if n != v { reps = n }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -161,89 +145,173 @@ private struct ExerciseScreen: View {
             Button("Cancel", role: .cancel) {}
         }
     }
-}
 
-private struct SetRow: View {
-    let session: LoggingSession
-    let index: Int
-    let row: SetLog
+    // MARK: Pieces
 
-    private var logged: Bool { Plan.filled(row) }
+    private func header(_ e: TemplateExercise) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("EXERCISE \(session.index + 1) OF \(session.day.exercises.count)")
+                .font(.caption.weight(.bold)).foregroundStyle(Theme.lime)
+            Text(session.shownName)
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .lineLimit(2).minimumScaleFactor(0.7)
+            Text("\(e.sets) × \(e.reps) reps" + (e.optional == true ? " · optional" : ""))
+                .font(.subheadline).foregroundStyle(.secondary)
+            if session.isSwapped {
+                Text("Swapped today from \(e.name)").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
 
-    var body: some View {
-        let hint = session.hint(for: index)
+    private var setPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                    let logged = Plan.filled(row)
+                    let isCurrent = i == current
+                    Button {
+                        selected = i
+                        Haptics.light()
+                    } label: {
+                        Text("\(i + 1)")
+                            .font(.headline.monospacedDigit())
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(logged ? Color.black : (isCurrent ? Theme.lime : Color.white))
+                            .background(Circle().fill(logged ? Theme.lime : Color.white.opacity(0.12)))
+                            .overlay(Circle().stroke(Theme.lime, lineWidth: isCurrent && !logged ? 2 : 0))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Set \(i + 1)" + (logged ? ", logged" : ""))
+                }
+            }
+        }
+    }
+
+    private func metrics(_ i: Int) -> some View {
+        let logged = Plan.filled(rows[i])
+        let hint = session.hint(for: i)
         let step = Logging.step(session.unit)
 
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text("\(index + 1)").font(.headline).foregroundStyle(.secondary).frame(width: 24)
-                StepperField(
-                    placeholder: "–",
-                    text: Binding(get: { row.weight }, set: { session.set(index, weight: Logging.numeric($0, decimal: true)) }),
-                    keyboard: .decimalPad,
-                    minus: { session.set(index, weight: Plan.step(row.weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step)) },
-                    plus: { session.set(index, weight: Plan.step(row.weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step)) }
-                )
-                StepperField(
-                    placeholder: "–",
-                    text: Binding(get: { row.reps }, set: { session.set(index, reps: Logging.numeric($0, decimal: false)) }),
-                    keyboard: .numberPad,
-                    minus: { let v = Plan.step(row.reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); session.set(index, reps: v == "0" ? "" : v) },
-                    plus: { session.set(index, reps: Plan.step(row.reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1)) }
-                )
-                Image(systemName: logged ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(logged ? Color.green : Color.secondary.opacity(0.5))
-                    .frame(width: 30)
-                    .accessibilityLabel(logged ? "Set logged" : "Set not logged")
+        return VStack(alignment: .leading, spacing: 24) {
+            Text(logged ? "SET \(i + 1) · LOGGED" : "SET \(i + 1) OF \(rows.count)")
+                .font(.caption.weight(.bold)).foregroundStyle(.secondary)
+
+            bigMetric("Weight (\(session.unit.rawValue))", text: $weight, keyboard: .decimalPad,
+                      minus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step) },
+                      plus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step) })
+
+            bigMetric("Reps", text: $reps, keyboard: .numberPad,
+                      minus: { let v = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); reps = v == "0" ? "" : v },
+                      plus: { reps = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1) })
+
+            Button { logSet(i) } label: {
+                Text(logged ? "Update set" : "Log set")
+                    .font(.title3.bold())
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 58)
+                    .foregroundStyle(.black)
+                    .background(Theme.lime, in: Capsule())
             }
-            if !logged, let hint, index == firstOpen {
-                Button {
-                    session.set(index, weight: hint.weight, reps: hint.reps)
-                } label: {
-                    Label("\(hint.weight.isEmpty ? "" : hint.weight + " × ")\(hint.reps)", systemImage: "arrow.counterclockwise").font(.footnote)
+            .buttonStyle(.plain)
+            .disabled(!canLog)
+            .opacity(canLog ? 1 : 0.35)
+
+            if logged {
+                Button("Clear this set", role: .destructive) {
+                    session.set(i, weight: "", reps: "")
+                    selected = nil
                 }
-                .padding(.leading, 32)
+                .font(.footnote)
             }
         }
-        .padding(.vertical, 2)
     }
 
-    private var firstOpen: Int { session.rows().firstIndex { !Plan.filled($0) } ?? 0 }
-}
-
-private struct StepperField: View {
-    let placeholder: String
-    let text: Binding<String>
-    let keyboard: UIKeyboardType
-    let minus: () -> Void
-    let plus: () -> Void
-
-    var body: some View {
-        HStack(spacing: 6) {
-            stepButton("minus", action: minus)
-            TextField(placeholder, text: text)
-                .keyboardType(keyboard)
-                .multilineTextAlignment(.center)
-                .font(.title3.weight(.semibold).monospacedDigit())
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-            stepButton("plus", action: plus)
+    private func bigMetric(_ label: String, text: Binding<String>, keyboard: UIKeyboardType,
+                           minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
+                TextField("0", text: text)
+                    .keyboardType(keyboard)
+                    .font(.system(size: 68, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                Text(label).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            roundButton("minus", label: "Decrease", action: minus)
+            roundButton("plus", label: "Increase", action: plus)
         }
-        .frame(maxWidth: .infinity)
     }
 
-    private func stepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func roundButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            Haptics.light()
+        } label: {
             Image(systemName: symbol)
-                .font(.footnote.weight(.bold))
-                .frame(width: 34, height: 34)
-                .background(Color(.tertiarySystemFill), in: Circle())
+                .font(.title3.weight(.bold))
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(Color.white.opacity(0.12)))
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color.accentColor)
-        .accessibilityLabel(symbol == "plus" ? "Increase" : "Decrease")
+        .accessibilityLabel(label)
+    }
+
+    private var allDone: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 56)).foregroundStyle(Theme.lime)
+            Text("All sets done").font(.title2.bold())
+            Text(session.isLast ? "Finish the workout below, or tap a set to change it." : "On to the next exercise, or tap a set to change it.")
+                .font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var extras: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let pb = session.personalBest {
+                Label("New personal best: \(Units.tidy(pb.weight)) \(session.unit.rawValue) × \(Int(pb.reps)) (estimated max up \(Units.tidy(pb.gain)) \(session.unit.rawValue))", systemImage: "trophy.fill")
+                    .font(.subheadline.bold()).foregroundStyle(.orange)
+            }
+            if let last = session.lastTime {
+                Text("Last: \(Plan.formatSets(last.sets, unit: session.unit)) · \(Format.date(last.date))")
+                    .font(.footnote).foregroundStyle(.secondary)
+                if session.readyToIncrease {
+                    Text("Top of the range, so we suggest +\(Units.tidy(Logging.step(session.unit))) \(session.unit.rawValue)")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                if !session.earlier.isEmpty {
+                    DisclosureGroup("Earlier sessions") {
+                        ForEach(session.earlier, id: \.date) { s in
+                            HStack {
+                                Text(Format.date(s.date)).foregroundStyle(.secondary)
+                                Spacer()
+                                Text(Plan.formatSets(s.sets, unit: session.unit))
+                            }
+                            .font(.footnote)
+                        }
+                    }
+                    .font(.footnote)
+                }
+            }
+        }
+    }
+
+    // MARK: Actions
+
+    /// Fills the boxes for the set on screen: what is logged, else the suggestion, else the bottom of the rep range.
+    private func loadDrafts() {
+        guard let i = current, i < rows.count else { weight = ""; reps = ""; return }
+        let row = rows[i]
+        if Plan.filled(row) { weight = row.weight; reps = row.reps; return }
+        let hint = session.hint(for: i)
+        weight = row.weight.isEmpty ? (hint?.weight ?? "") : row.weight
+        reps = row.reps.isEmpty ? (hint?.reps ?? String(session.exercise.reps.prefix { $0.isNumber })) : row.reps
+    }
+
+    private func logSet(_ i: Int) {
+        guard canLog else { return }
+        session.set(i, weight: Logging.numeric(weight, decimal: true), reps: Logging.numeric(reps, decimal: false))
+        selected = nil
     }
 }
 
@@ -253,31 +321,52 @@ private struct BottomBar: View {
     let close: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             RestBar()
             HStack {
-                Button {
-                    session.index -= 1
-                } label: { Label("Previous", systemImage: "chevron.left") }
+                Button { session.index -= 1 } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.headline)
+                        .frame(width: 52, height: 52)
+                        .background(Circle().fill(Color.white.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
                 .disabled(session.index == 0)
+                .opacity(session.index == 0 ? 0.3 : 1)
+                .accessibilityLabel("Previous exercise")
 
                 Spacer()
                 Button { showList = true } label: {
-                    Text("\(session.index + 1) of \(session.day.exercises.count) ▾").font(.subheadline)
+                    HStack(spacing: 4) {
+                        Text("\(session.index + 1) of \(session.day.exercises.count)").font(.subheadline.weight(.semibold))
+                        Image(systemName: "chevron.up").font(.caption2.weight(.bold))
+                    }
+                    .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
                 Spacer()
 
                 if session.isLast {
-                    Button("Finish") { session.finish(); close() }.buttonStyle(.borderedProminent).disabled(!session.canFinish)
+                    Button { session.finish(); close() } label: {
+                        Text("Finish").font(.headline).frame(width: 110, height: 52)
+                            .foregroundStyle(.black).background(Theme.lime, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!session.canFinish)
+                    .opacity(session.canFinish ? 1 : 0.35)
                 } else {
-                    Button { session.index += 1 } label: { Label("Next", systemImage: "chevron.right").labelStyle(.titleAndIcon) }
-                        .buttonStyle(.borderedProminent)
+                    Button { session.index += 1 } label: {
+                        HStack(spacing: 6) { Text("Next"); Image(systemName: "chevron.right") }
+                            .font(.headline).frame(width: 110, height: 52)
+                            .foregroundStyle(.black).background(Theme.lime, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(Color.black)
     }
 }
 
@@ -309,7 +398,7 @@ private struct ExerciseListSheet: View {
     }
 }
 
-/// The rest countdown, pinned above the Previous / Next bar while it runs.
+/// The rest countdown, pinned above the Previous / Next bar while it runs: a big yellow clock in a pill, like the stopwatch in Fitness.
 struct RestBar: View {
     @Environment(RestTimer.self) private var timer
 
@@ -317,18 +406,21 @@ struct RestBar: View {
         if let deadline = timer.deadline {
             TimelineView(.periodic(from: .now, by: 0.5)) { context in
                 let left = max(0, deadline.timeIntervalSince(context.date))
-                HStack {
-                    Text(left > 0 ? Plan.clock(left) : "Go!").font(.title2.monospacedDigit().bold())
+                HStack(spacing: 10) {
+                    Text(left > 0 ? Plan.clock(left) : "Go!")
+                        .font(.system(size: 38, weight: .medium, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.yellow)
+                        .padding(.leading, 8)
                     Spacer()
                     if left > 0 {
-                        Button("+15") { timer.add(15) }.buttonStyle(.bordered)
-                        Button("Skip") { timer.stop() }.buttonStyle(.bordered)
+                        pill("+15") { timer.add(15) }
+                        pill("Skip") { timer.stop() }
                     } else {
-                        Button("Dismiss") { timer.stop() }.buttonStyle(.borderedProminent)
+                        pill("Dismiss") { timer.stop() }
                     }
                 }
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .background(Color(white: 0.13), in: Capsule())
             }
             .task(id: deadline) {
                 let wait = deadline.timeIntervalSinceNow
@@ -336,6 +428,16 @@ struct RestBar: View {
                 if !Task.isCancelled { Haptics.success() }
             }
         }
+    }
+
+    private func pill(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16).frame(height: 40)
+                .background(Capsule().fill(Color.white.opacity(0.14)))
+        }
+        .buttonStyle(.plain)
     }
 }
 
