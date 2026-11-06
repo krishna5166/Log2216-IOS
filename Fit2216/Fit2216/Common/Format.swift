@@ -25,8 +25,8 @@ enum Format {
 extension View {
     /// A rounded card background used across the screens.
     func card() -> some View {
-        padding()
+        padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 22))
     }
 }

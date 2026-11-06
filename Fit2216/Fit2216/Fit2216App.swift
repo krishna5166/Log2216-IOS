@@ -20,6 +20,8 @@ struct Fit2216App: App {
                 .environment(auth)
                 .environment(model)
                 .environment(rest)
+                .preferredColorScheme(.dark)
+                .tint(Theme.lime)
         }
     }
 }

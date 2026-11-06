@@ -18,9 +18,12 @@ struct SummaryView: View {
         let next = session.flatMap { $0.state == .finished ? Plan.nextUp(model.plan, model.logs, now, afterDay: $0.day.day) : nil }
 
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
                 if let session {
-                    TodayCard(session: session, streak: streak, left: left, next: next)
+                    HeroCard(session: session, streak: streak, week: week)
+                    if session.state != .rest && session.state != .skipped && (!left.isEmpty || next != nil) {
+                        UpNextCard(session: session, left: left, next: next)
+                    }
                 } else {
                     ContentUnavailableView("No plan yet", systemImage: "calendar", description: Text("Add a plan in the Workout tab."))
                 }
@@ -28,7 +31,9 @@ struct SummaryView: View {
                 BodyCard(summary: bodyCard, unit: model.profile.bodyUnit)
                 if let best { BestCard(record: best, unit: model.profile.gymUnit) }
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
         }
         .navigationTitle("Summary")
         .safeAreaInset(edge: .bottom) {
@@ -47,55 +52,81 @@ struct SummaryView: View {
     }
 }
 
-private struct TodayCard: View {
+/// The top card, like Fitness's Activity Rings: two rings (sets today, workouts this week) and big coloured numbers.
+private struct HeroCard: View {
     let session: TodaySession
     let streak: Int
+    let week: WeekSummary
+
+    private var setsProgress: Double { session.plannedSets > 0 ? Double(session.loggedSets) / Double(session.plannedSets) : 0 }
+    private var weekProgress: Double { week.planned > 0 ? Double(week.done) / Double(week.planned) : 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.isToday ? "TODAY" : "NEXT UP").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text(session.day.name).font(.system(size: 28, weight: .bold, design: .rounded))
+            }
+
+            HStack(spacing: 22) {
+                ZStack {
+                    Ring(progress: setsProgress, color: Theme.pink, size: 146)
+                    Ring(progress: weekProgress, color: Theme.lime, size: 146 - 42)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    metric("Sets", "\(session.loggedSets)/\(session.plannedSets)", "sets", Theme.pink)
+                    metric("This week", "\(week.done)/\(week.planned)", "wks", Theme.lime)
+                    metric("Streak", "\(streak)", streak == 1 ? "day" : "days", .orange)
+                }
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+
+            switch session.state {
+            case .rest: Text("Rest day. Recovery is part of the plan.").font(.subheadline)
+            case .skipped: Text("Skipped today.").font(.subheadline)
+            case .finished: Label("Finished", systemImage: "checkmark.circle.fill").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.lime)
+            default: EmptyView()
+            }
+
+            if !session.muscles.isEmpty {
+                Text(session.muscles.map(\.label).joined(separator: " · ")).font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .card()
+    }
+
+    private func metric(_ label: String, _ value: String, _ unit: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label).font(.subheadline)
+            BigValue(value: value, unit: unit, color: color, size: 28)
+        }
+    }
+}
+
+/// What is left today and what comes after.
+private struct UpNextCard: View {
+    let session: TodaySession
     let left: [RemainingExercise]
     let next: TemplateDay?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(session.isToday ? "Today" : "Next up").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
-                    Text(session.day.name).font(.title2.bold())
-                }
-                Spacer()
-                Label("\(streak)", systemImage: "flame.fill").foregroundStyle(.orange).font(.headline)
-                    .accessibilityLabel("Workout streak \(streak)")
-            }
-
-            if !session.muscles.isEmpty {
-                Text(session.muscles.map(\.label).joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
-            }
-
-            switch session.state {
-            case .rest:
-                Text("Rest day. Recovery is part of the plan.").font(.subheadline)
-            case .skipped:
-                Text("Skipped today.").font(.subheadline)
-            default:
-                VStack(alignment: .leading, spacing: 8) {
-                    ProgressView(value: Double(session.loggedSets), total: Double(max(session.plannedSets, 1)))
-                    Text("\(session.loggedSets) of \(session.plannedSets) sets done" + (session.state == .finished ? " · finished" : ""))
-                        .font(.footnote).foregroundStyle(.secondary)
-                    if let next {
-                        Divider()
-                        Text("Next: \(next.name) · \(Calendar.current.shortWeekdaySymbols[next.day])").font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    if !left.isEmpty && session.state != .finished {
-                        Divider()
-                        Text("Left to do").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
-                        ForEach(left.prefix(4), id: \.name) { e in
-                            HStack {
-                                Text(e.name + (e.optional ? " (optional)" : "")).font(.subheadline)
-                                Spacer()
-                                Text("\(e.setsLeft) \(e.setsLeft == 1 ? "set" : "sets")").font(.footnote).foregroundStyle(.secondary)
-                            }
-                        }
-                        if left.count > 4 { Text("+ \(left.count - 4) more").font(.footnote).foregroundStyle(.secondary) }
+        VStack(alignment: .leading, spacing: 10) {
+            if !left.isEmpty && session.state != .finished {
+                Text("Left to do").font(.title3.weight(.semibold))
+                ForEach(left.prefix(4), id: \.name) { e in
+                    HStack {
+                        Text(e.name + (e.optional ? " (optional)" : "")).font(.body)
+                        Spacer()
+                        Text("\(e.setsLeft) \(e.setsLeft == 1 ? "set" : "sets")").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
+                if left.count > 4 { Text("+ \(left.count - 4) more").font(.footnote).foregroundStyle(.secondary) }
+            }
+            if let next {
+                if !left.isEmpty && session.state != .finished { Divider() }
+                Text("NEXT").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("\(next.name) · \(Calendar.current.shortWeekdaySymbols[next.day])").font(.body)
             }
         }
         .card()
@@ -107,21 +138,21 @@ private struct WeekCard: View {
     private static let letters = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("This week").font(.headline)
+                Text("This week").font(.title3.weight(.semibold))
                 Spacer()
-                Text("\(week.done) of \(week.planned) workouts").font(.subheadline).foregroundStyle(.secondary)
+                BigValue(value: "\(week.done)/\(week.planned)", unit: "workouts", color: Theme.lime, size: 22)
             }
             HStack {
                 ForEach(week.days, id: \.date) { d in
-                    VStack(spacing: 6) {
-                        Text(Self.letters[d.weekday]).font(.caption).foregroundStyle(.secondary)
+                    VStack(spacing: 8) {
+                        Text(Self.letters[d.weekday]).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         Circle()
                             .fill(color(d.state))
-                            .frame(width: 28, height: 28)
-                            .overlay { if d.isToday { Circle().stroke(Color.primary, lineWidth: 2) } }
-                            .overlay { if !symbol(d.state).isEmpty { Image(systemName: symbol(d.state)).font(.caption.bold()).foregroundStyle(.white) } }
+                            .frame(width: 34, height: 34)
+                            .overlay { if d.isToday { Circle().stroke(Theme.lime, lineWidth: 2.5).padding(-4) } }
+                            .overlay { if !symbol(d.state).isEmpty { Image(systemName: symbol(d.state)).font(.caption.weight(.heavy)).foregroundStyle(d.state == .done ? Color.black : Color.white) } }
                     }
                     .frame(maxWidth: .infinity)
                     .accessibilityElement(children: .combine)
@@ -134,12 +165,12 @@ private struct WeekCard: View {
 
     private func color(_ s: WeekDay.State) -> Color {
         switch s {
-        case .done: return .green
-        case .missed: return .red
-        case .skipped: return .orange
-        case .today: return .blue.opacity(0.35)
-        case .upcoming: return .gray.opacity(0.35)
-        case .rest, .none: return .gray.opacity(0.15)
+        case .done: return Theme.lime
+        case .missed: return Theme.pink.opacity(0.85)
+        case .skipped: return .orange.opacity(0.85)
+        case .today: return Color.white.opacity(0.22)
+        case .upcoming: return Color.white.opacity(0.14)
+        case .rest, .none: return Color.white.opacity(0.06)
         }
     }
 
@@ -172,12 +203,17 @@ private struct BodyCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Body weight").font(.headline)
+                Text("Body weight").font(.title3.weight(.semibold))
                 Spacer()
-                Button("Log weight") { showWeighIn = true }.font(.subheadline.bold())
+                Button { showWeighIn = true } label: {
+                    Text("Log weight").font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14).frame(height: 34)
+                        .background(Capsule().fill(Color.white.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
             }
             if let summary {
-                Text(Format.weight(kg: summary.latestKg, unit: unit)).font(.title2.bold())
+                BigValue(value: Units.tidy(Units.fromKg(summary.latestKg, to: unit)), unit: unit.rawValue, color: Theme.cyan, size: 44)
                 Text("Logged \(Format.date(summary.latestDate))").font(.footnote).foregroundStyle(.secondary)
                 if let pace = summary.perWeekKg {
                     let shown = Units.fromKg(pace, to: unit)
@@ -213,9 +249,10 @@ private struct BestCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Recent best").font(.headline)
-            Text(record.name).font(.title3.bold())
-            Text("\(Format.weight(kg: record.weight, unit: unit)) × \(Int(record.reps)) on \(Format.date(record.date))").font(.subheadline).foregroundStyle(.secondary)
+            Text("Recent best").font(.title3.weight(.semibold))
+            Text(record.name).font(.subheadline).foregroundStyle(.secondary)
+            BigValue(value: "\(Units.tidy(Units.fromKg(record.weight, to: unit))) × \(Int(record.reps))", unit: unit.rawValue, color: Theme.lime, size: 40)
+            Text("on \(Format.date(record.date))").font(.footnote).foregroundStyle(.secondary)
         }
         .card()
     }
@@ -237,14 +274,21 @@ private struct StartBar: View {
         }
     }
 
+    private var enabled: Bool { ready && session != nil && session?.state != .rest && session?.state != .skipped }
+
     var body: some View {
-        Button(action: action) { Text(title).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6) }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(!ready || session == nil || session?.state == .rest || session?.state == .skipped)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(.bar)
+        Button(action: action) {
+            Text(title).font(.title3.bold())
+                .frame(maxWidth: .infinity).frame(height: 58)
+                .foregroundStyle(.black)
+                .background(Theme.lime, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.35)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 }
 

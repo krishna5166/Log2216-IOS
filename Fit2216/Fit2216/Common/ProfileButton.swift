@@ -8,7 +8,7 @@ private struct ProfileButton: ViewModifier {
         content
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Image(systemName: "person.crop.circle") }
+                    Button { showSettings = true } label: { Image(systemName: "person.crop.circle.fill").font(.title2).symbolRenderingMode(.hierarchical).foregroundStyle(.secondary) }
                         .accessibilityLabel("Profile and settings")
                 }
             }
