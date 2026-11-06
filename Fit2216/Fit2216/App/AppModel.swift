@@ -19,7 +19,8 @@ final class AppModel {
     var phase: Phase = .idle
 
     @ObservationIgnored private let service = FirestoreService()
-    @ObservationIgnored private var uid: String?
+    var firestore: FirestoreService { service }
+    private(set) var uid: String?
 
     var now: Date { Date() }
 
@@ -36,6 +37,54 @@ final class AppModel {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// Today's calorie and macro targets from your body details and recent training, or nil until those are filled in.
+    var targets: Targets? {
+        Nutrition.computeTargets(profile, autoSessions: Nutrition.avgSessions(plan: plan, logs: logs, now))
+    }
+
+    func saveWeight(_ entry: WeightEntry) {
+        weights.removeAll { $0.date == entry.date }
+        weights.append(entry)
+        weights.sort { $0.date > $1.date }
+        if let uid { service.saveWeight(uid: uid, entry: entry) }
+        // The newest weigh-in keeps the body details, and so the targets, current.
+        if entry.date >= (weights.first?.date ?? "") {
+            var p = profile
+            p.weightKg = entry.kg
+            saveProfile(p)
+        }
+    }
+
+    func deleteWeight(date: String) {
+        weights.removeAll { $0.date == date }
+        if let uid { service.deleteWeight(uid: uid, date: date) }
+    }
+
+    func deleteLog(_ log: WorkoutLog) {
+        let id = Logging.documentID(log)
+        logs.removeAll { Logging.documentID($0) == id }
+        if let uid { service.deleteLog(uid: uid, log: log) }
+    }
+
+    func savePlan(_ newPlan: [TemplateDay]) {
+        plan = newPlan
+        var library = Set<String>()
+        for d in newPlan { for e in d.exercises where !e.name.trimmingCharacters(in: .whitespaces).isEmpty { library.insert(e.name) } }
+        if let uid { service.savePlan(uid: uid, plan: newPlan, library: library.sorted()) }
+    }
+
+    /// Saves the profile and keeps the protein range in step with the new targets.
+    func saveProfile(_ p: Profile) {
+        profile = p
+        if let uid { service.updateProfile(uid: uid, fields: p.updateFields(targets: targets)) }
+    }
+
+    /// Re-reads everything after a restore or an import.
+    func reload() async {
+        guard let uid else { return }
+        await load(uid: uid)
     }
 
     /// Shows a changed workout at once and writes it to Firestore.

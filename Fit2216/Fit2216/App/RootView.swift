@@ -7,7 +7,7 @@ struct RootView: View {
                 .tabItem { Label("Summary", systemImage: "heart.circle") }
             NavigationStack { WorkoutView().profileButton() }
                 .tabItem { Label("Workout", systemImage: "dumbbell") }
-            NavigationStack { ComingSoonView(title: "Macros", symbol: "fork.knife").profileButton() }
+            NavigationStack { MacrosView().profileButton() }
                 .tabItem { Label("Macros", systemImage: "fork.knife") }
             NavigationStack { InsightsView().profileButton() }
                 .tabItem { Label("Insights", systemImage: "chart.line.uptrend.xyaxis") }

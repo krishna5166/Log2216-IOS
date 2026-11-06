@@ -1,0 +1,91 @@
+import SwiftUI
+import Observation
+import Fit2216Core
+
+/// Today's food: the entries, the text being written, and turning text into calories through the server.
+@Observable
+final class MacrosModel {
+    enum Status: Equatable {
+        case idle
+        case parsing
+        case failed(String)
+    }
+
+    var cards: [FoodCard] = []
+    var text = ""
+    var editing: String?
+    var status: Status = .idle
+    private(set) var date = ""
+
+    @ObservationIgnored private var stash = ""
+    @ObservationIgnored private let ai = AIClient()
+
+    var totals: Totals { Food.dayTotals(cards) }
+
+    func load(uid: String, date: String, service: FirestoreService) async {
+        self.date = date
+        if let day = try? await service.loadFoodDay(uid: uid, date: date) {
+            cards = day.cards
+            text = day.draft ?? ""
+        }
+    }
+
+    private func persist(uid: String, targets: Targets?, service: FirestoreService) {
+        let pct = Food.completionPercent(totals, targets: targets)
+        service.saveFoodDay(uid: uid, date: date, day: FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct))
+    }
+
+    /// Saves the unsent text (when the app goes to the background or the screen closes).
+    func saveDraft(uid: String, targets: Targets?, service: FirestoreService) {
+        persist(uid: uid, targets: targets, service: service)
+    }
+
+    func submit(uid: String, targets: Targets?, service: FirestoreService) async {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, status != .parsing else { return }
+        status = .parsing
+        let items: [Meal]
+        if let known = FoodMemory.lookup(uid: uid, text: value) {
+            items = known // worked out before: no request
+        } else {
+            do {
+                items = try await ai.meals(for: value)
+                FoodMemory.store(uid: uid, text: value, meals: items)
+            } catch {
+                status = .failed(error.localizedDescription)
+                return
+            }
+        }
+        let id = editing ?? String(UUID().uuidString.prefix(8)).lowercased()
+        let card = FoodCard(id: id, text: value, items: items)
+        if editing != nil { cards = cards.map { $0.id == id ? card : $0 } } else { cards.append(card) }
+        editing = nil
+        text = stash
+        stash = ""
+        status = .idle
+        persist(uid: uid, targets: targets, service: service)
+    }
+
+    func open(_ card: FoodCard) {
+        if editing == nil { stash = text } // keep a half-written entry while another one is edited
+        editing = card.id
+        text = card.text
+        status = .idle
+    }
+
+    func cancelEdit() {
+        editing = nil
+        text = stash
+        stash = ""
+        status = .idle
+    }
+
+    func removeEditing(uid: String, targets: Targets?, service: FirestoreService) {
+        guard let id = editing else { return }
+        cards.removeAll { $0.id == id }
+        editing = nil
+        text = stash
+        stash = ""
+        persist(uid: uid, targets: targets, service: service)
+    }
+}

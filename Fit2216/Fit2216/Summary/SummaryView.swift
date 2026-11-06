@@ -151,10 +151,15 @@ private struct WeekCard: View {
 private struct BodyCard: View {
     let summary: BodySummary?
     let unit: WeightUnit
+    @State private var showWeighIn = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Body weight").font(.headline)
+            HStack {
+                Text("Body weight").font(.headline)
+                Spacer()
+                Button("Log weight") { showWeighIn = true }.font(.subheadline.bold())
+            }
             if let summary {
                 Text(Format.weight(kg: summary.latestKg, unit: unit)).font(.title2.bold())
                 Text("Logged \(Format.date(summary.latestDate))").font(.footnote).foregroundStyle(.secondary)
@@ -170,6 +175,7 @@ private struct BodyCard: View {
             }
         }
         .card()
+        .sheet(isPresented: $showWeighIn) { WeighInSheet() }
     }
 
     private func projectionLine(_ s: BodySummary) -> String? {
