@@ -29,11 +29,11 @@ struct FirestoreService {
     }
 
     /// Writes one workout in the shape the web app uses (`users/{uid}/logs/{date_dayIndex}`). The SDK queues the write while offline and sends it later.
-    func saveLog(uid: String, log: WorkoutLog) {
+    func saveLog(uid: String, log: WorkoutLog, completion: ((Error?) -> Void)? = nil) {
         guard let data = try? JSONEncoder().encode(log),
               let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
         Firestore.firestore()
             .collection("users").document(uid).collection("logs").document(Logging.documentID(log))
-            .setData(object)
+            .setData(object, completion: completion)
     }
 }

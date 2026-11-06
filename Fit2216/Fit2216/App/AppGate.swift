@@ -73,7 +73,24 @@ private struct ErrorBanner: View {
             .padding(8)
             .background(.regularMaterial)
         default:
-            EmptyView()
+            if let problem = model.writeProblem {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
+                    Text("A change could not be saved to the cloud: \(problem)").font(.footnote).lineLimit(3)
+                    Spacer()
+                    Button("OK") { model.dismissWriteProblem() }.font(.footnote.bold())
+                }
+                .padding(8)
+                .background(.regularMaterial)
+            } else if model.slowSync && model.unsent > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.secondary)
+                    Text(model.unsent == 1 ? "1 change saved on this phone, syncing…" : "\(model.unsent) changes saved on this phone, syncing…").font(.footnote)
+                    Spacer()
+                }
+                .padding(8)
+                .background(.regularMaterial)
+            }
         }
     }
 }

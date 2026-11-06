@@ -15,11 +15,12 @@ struct SummaryView: View {
         let left = session.map { Summary.remaining(day: $0.day, log: todayLog) } ?? []
         let bodyCard = Summary.body(weights: model.weights, profile: model.profile, now)
         let best = Summary.recentBest(logs: model.logs, now)
+        let next = session.flatMap { $0.state == .finished ? Plan.nextUp(model.plan, model.logs, now, afterDay: $0.day.day) : nil }
 
         ScrollView {
             VStack(spacing: 16) {
                 if let session {
-                    TodayCard(session: session, streak: streak, left: left)
+                    TodayCard(session: session, streak: streak, left: left, next: next)
                 } else {
                     ContentUnavailableView("No plan yet", systemImage: "calendar", description: Text("Add a plan in the Workout tab."))
                 }
@@ -50,6 +51,7 @@ private struct TodayCard: View {
     let session: TodaySession
     let streak: Int
     let left: [RemainingExercise]
+    let next: TemplateDay?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -77,6 +79,10 @@ private struct TodayCard: View {
                     ProgressView(value: Double(session.loggedSets), total: Double(max(session.plannedSets, 1)))
                     Text("\(session.loggedSets) of \(session.plannedSets) sets done" + (session.state == .finished ? " · finished" : ""))
                         .font(.footnote).foregroundStyle(.secondary)
+                    if let next {
+                        Divider()
+                        Text("Next: \(next.name) · \(Calendar.current.shortWeekdaySymbols[next.day])").font(.subheadline).foregroundStyle(.secondary)
+                    }
                     if !left.isEmpty && session.state != .finished {
                         Divider()
                         Text("Left to do").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)

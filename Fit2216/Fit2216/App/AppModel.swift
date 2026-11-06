@@ -19,9 +19,36 @@ final class AppModel {
     var weights: [WeightEntry] = []
     var profile = Profile()
     var phase: Phase = .idle
+    /// Changes saved on this phone that the cloud has not confirmed yet (waiting for a connection), and the last reason one was refused.
+    private(set) var unsent = 0
+    private(set) var writeProblem: String?
+    /// True once a change has been waiting more than a few seconds, so the notice does not flicker on every normal save.
+    private(set) var slowSync = false
+    @ObservationIgnored private var slowTimer: Task<Void, Never>?
 
     @ObservationIgnored private let service = FirestoreService()
     var firestore: FirestoreService { service }
+
+    /// Runs a write and keeps count of the ones the cloud has not confirmed, so the screen can say "saved on this phone, will sync".
+    func tracked(_ write: (@escaping (Error?) -> Void) -> Void) {
+        unsent += 1
+        if unsent == 1 {
+            slowTimer = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                if !Task.isCancelled, let self, self.unsent > 0 { self.slowSync = true }
+            }
+        }
+        write { [weak self] error in
+            Task { @MainActor in
+                guard let self else { return }
+                self.unsent = max(0, self.unsent - 1)
+                if let error { self.writeProblem = error.localizedDescription } else if self.unsent == 0 { self.writeProblem = nil }
+                if self.unsent == 0 { self.slowTimer?.cancel(); self.slowSync = false }
+            }
+        }
+    }
+
+    func dismissWriteProblem() { writeProblem = nil }
     private(set) var uid: String?
 
     /// Bumped at midnight and when the app comes back, so screens that show "today" move on to the new day.
@@ -80,7 +107,7 @@ final class AppModel {
         weights.removeAll { $0.date == entry.date }
         weights.append(entry)
         weights.sort { $0.date > $1.date }
-        if let uid { service.saveWeight(uid: uid, entry: entry) }
+        if let uid { tracked { done in service.saveWeight(uid: uid, entry: entry, completion: done) } }
         // The newest weigh-in keeps the body details, and so the targets, current. Only those fields are written.
         if entry.date >= (weights.first?.date ?? "") {
             updateProfile(keys: ["profile.weightKg", "profile.proteinMin", "profile.proteinMax"]) { $0.weightKg = entry.kg }
@@ -89,13 +116,13 @@ final class AppModel {
 
     func deleteWeight(date: String) {
         weights.removeAll { $0.date == date }
-        if let uid { service.deleteWeight(uid: uid, date: date) }
+        if let uid { tracked { done in service.deleteWeight(uid: uid, date: date, completion: done) } }
     }
 
     func deleteLog(_ log: WorkoutLog) {
         let id = Logging.documentID(log)
         logs.removeAll { Logging.documentID($0) == id }
-        if let uid { service.deleteLog(uid: uid, log: log) }
+        if let uid { tracked { done in service.deleteLog(uid: uid, log: log, completion: done) } }
     }
 
     func savePlan(_ newPlan: [TemplateDay]) {
@@ -104,7 +131,7 @@ final class AppModel {
         var names = Set(library)
         for d in newPlan { for e in d.exercises where !e.name.trimmingCharacters(in: .whitespaces).isEmpty { names.insert(e.name) } }
         library = names.sorted()
-        if let uid { service.savePlan(uid: uid, plan: newPlan, library: library) }
+        if let uid { tracked { done in service.savePlan(uid: uid, plan: newPlan, library: library, completion: done) } }
     }
 
     /// Changes some profile fields and writes only those (plus the protein range, which follows the targets).
@@ -112,13 +139,13 @@ final class AppModel {
         var p = profile
         change(&p)
         profile = p
-        if let uid { service.updateProfile(uid: uid, fields: p.updateFields(targets: targets, only: keys)) }
+        if let uid { tracked { done in service.updateProfile(uid: uid, fields: p.updateFields(targets: targets, only: keys), completion: done) } }
     }
 
     /// Saves every field of the body-and-targets form, and keeps the protein range in step with the new targets.
     func saveProfile(_ p: Profile) {
         profile = p
-        if let uid { service.updateProfile(uid: uid, fields: p.updateFields(targets: targets)) }
+        if let uid { tracked { done in service.updateProfile(uid: uid, fields: p.updateFields(targets: targets), completion: done) } }
     }
 
     /// Re-reads everything after a restore or an import.
@@ -131,12 +158,12 @@ final class AppModel {
     func save(_ log: WorkoutLog) {
         let id = Logging.documentID(log)
         if let i = logs.firstIndex(where: { Logging.documentID($0) == id }) { logs[i] = log } else { logs.insert(log, at: 0) }
-        if let uid { service.saveLog(uid: uid, log: log) }
+        if let uid { tracked { done in service.saveLog(uid: uid, log: log, completion: done) } }
     }
 
     func reset() {
         uid = nil
-        plan = []; library = []; logs = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil
+        plan = []; library = []; logs = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil; unsent = 0; writeProblem = nil; slowSync = false; slowTimer?.cancel()
     }
 
     /// Sample data for previews.

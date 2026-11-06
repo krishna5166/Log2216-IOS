@@ -43,7 +43,7 @@ final class MacrosModel {
     private func persist(uid: String, targets: Targets?, service: FirestoreService) {
         guard loaded else { return }
         let pct = Food.completionPercent(totals, targets: targets)
-        service.saveFoodDay(uid: uid, date: date, day: FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct))
+        service.saveFoodDay(uid: uid, date: date, day: FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct), completion: nil)
     }
 
     /// Saves the unsent text (when the app goes to the background or the screen closes).

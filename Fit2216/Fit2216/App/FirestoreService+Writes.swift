@@ -15,32 +15,32 @@ extension FirestoreService {
 
     // MARK: weights, workouts
 
-    func saveWeight(uid: String, entry: WeightEntry) {
-        user(uid).collection("weights").document(entry.date).setData(["date": entry.date, "kg": entry.kg])
+    func saveWeight(uid: String, entry: WeightEntry, completion: ((Error?) -> Void)? = nil) {
+        user(uid).collection("weights").document(entry.date).setData(["date": entry.date, "kg": entry.kg], completion: completion)
     }
 
-    func deleteWeight(uid: String, date: String) {
-        user(uid).collection("weights").document(date).delete()
+    func deleteWeight(uid: String, date: String, completion: ((Error?) -> Void)? = nil) {
+        user(uid).collection("weights").document(date).delete(completion: completion)
     }
 
-    func deleteLog(uid: String, log: WorkoutLog) {
-        user(uid).collection("logs").document(Logging.documentID(log)).delete()
+    func deleteLog(uid: String, log: WorkoutLog, completion: ((Error?) -> Void)? = nil) {
+        user(uid).collection("logs").document(Logging.documentID(log)).delete(completion: completion)
     }
 
     // MARK: plan and profile
 
-    func savePlan(uid: String, plan: [TemplateDay], library: [String]) {
-        user(uid).setData(["plan": objects(plan), "library": library], merge: true)
+    func savePlan(uid: String, plan: [TemplateDay], library: [String], completion: ((Error?) -> Void)? = nil) {
+        user(uid).setData(["plan": objects(plan), "library": library], merge: true, completion: completion)
     }
 
     /// Changes only the named profile fields (`profile.heightCm` ...); nil removes a field. Creates the document if it does not exist yet.
-    func updateProfile(uid: String, fields: [String: Any?]) {
+    func updateProfile(uid: String, fields: [String: Any?], completion: ((Error?) -> Void)? = nil) {
         var nested: [String: Any] = [:]
         for (key, value) in fields where key.hasPrefix("profile.") {
             nested[String(key.dropFirst("profile.".count))] = value ?? FieldValue.delete()
         }
         guard !nested.isEmpty else { return }
-        user(uid).setData(["profile": nested], merge: true)
+        user(uid).setData(["profile": nested], merge: true, completion: completion)
     }
 
     // MARK: food
@@ -51,9 +51,9 @@ extension FirestoreService {
         return FirestoreDecoding.decode(FoodDay.self, from: data) ?? FoodDay()
     }
 
-    func saveFoodDay(uid: String, date: String, day: FoodDay) {
-        guard let data = object(day) else { return }
-        user(uid).collection("foodDays").document(date).setData(data)
+    func saveFoodDay(uid: String, date: String, day: FoodDay, completion: ((Error?) -> Void)? = nil) {
+        guard let data = object(day) else { completion?(nil); return }
+        user(uid).collection("foodDays").document(date).setData(data, completion: completion)
     }
 
     /// Completion % for each day from `from` on, newest data only (for the 7-day chart).
