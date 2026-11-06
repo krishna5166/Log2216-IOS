@@ -1,4 +1,5 @@
 import SwiftUI
+import Fit2216Core
 
 struct SettingsView: View {
     @Environment(AuthModel.self) private var auth
