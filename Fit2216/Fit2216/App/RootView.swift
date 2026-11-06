@@ -6,7 +6,7 @@ struct RootView: View {
             NavigationStack { SummaryView().profileButton() }
                 .tabItem { Label("Summary", systemImage: "heart.circle") }
             NavigationStack { WorkoutView().profileButton() }
-                .tabItem { Label("Workout", systemImage: "dumbbell") }
+                .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
             NavigationStack { MacrosView().profileButton() }
                 .tabItem { Label("Macros", systemImage: "fork.knife") }
             NavigationStack { InsightsView().profileButton() }

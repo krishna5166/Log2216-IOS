@@ -24,7 +24,8 @@ struct MacrosView: View {
                 Text("Estimates from what you write, not medical advice. Each entry becomes a card; tap a card to edit just that entry.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Macros")
@@ -62,28 +63,44 @@ struct MacrosView: View {
         await macros.load(uid: uid, date: Dates.localDate(model.now), service: model.firestore)
     }
 
+    /// Four rings (calories, protein, carbs, fat) and the numbers beside them, like Fitness's Activity Rings.
     private func tiles(totals: Totals, targets: Targets?) -> some View {
-        let rows: [(MacroKey, String, String)] = [(.kcal, "Calories", "kcal"), (.protein, "Protein", "g"), (.carbs, "Carbs", "g"), (.fat, "Fat", "g")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            ForEach(rows, id: \.0) { key, label, unit in
-                let value: Double = { switch key { case .kcal: return totals.kcal; case .protein: return totals.protein; case .carbs: return totals.carbs; case .fat: return totals.fat } }()
-                let status = Food.status(key, value: value, targets: targets)
-                let targetText = status.target.map { " / \($0)" } ?? ""
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(label).font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
-                    Text("\(Int(value.rounded()))\(targetText) \(unit)").font(.headline)
-                    if let target = status.target {
-                        ProgressView(value: min(value, Double(target)), total: Double(target)).tint(color(status.state))
-                    }
-                    Text(note(status, unit: unit)).font(.caption).foregroundStyle(color(status.state))
-                }
-                .card()
-            }
+        let rows: [(MacroKey, String, String, Color)] = [
+            (.kcal, "Calories", "kcal", Theme.pink), (.protein, "Protein", "g", Theme.lime),
+            (.carbs, "Carbs", "g", Theme.cyan), (.fat, "Fat", "g", Theme.purple),
+        ]
+        func value(_ key: MacroKey) -> Double {
+            switch key { case .kcal: return totals.kcal; case .protein: return totals.protein; case .carbs: return totals.carbs; case .fat: return totals.fat }
         }
+        return HStack(alignment: .center, spacing: 18) {
+            ZStack {
+                ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                    let status = Food.status(row.0, value: value(row.0), targets: targets)
+                    let progress = status.target.map { $0 > 0 ? value(row.0) / Double($0) : 0 } ?? 0
+                    Ring(progress: progress, color: row.3, size: 138 - CGFloat(i) * 30, line: 11)
+                }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(rows, id: \.0) { key, label, unit, tint in
+                    let v = value(key)
+                    let status = Food.status(key, value: v, targets: targets)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 6) {
+                            Text(label).font(.footnote)
+                            Text(note(status, unit: unit)).font(.caption2).foregroundStyle(color(status.state))
+                        }
+                        BigValue(value: "\(Int(v.rounded()))" + (status.target.map { "/\($0)" } ?? ""), unit: unit, color: tint, size: 22)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .card()
+        .accessibilityElement(children: .combine)
     }
 
     private func color(_ s: MacroStatus.State) -> Color {
-        switch s { case .hit: return .green; case .over: return .red; case .under: return .orange; case .none: return .secondary }
+        switch s { case .hit: return Theme.lime; case .over: return Theme.pink; case .under: return .orange; case .none: return .secondary }
     }
 
     private func note(_ s: MacroStatus, unit: String) -> String {
@@ -91,24 +108,30 @@ struct MacrosView: View {
         case .hit: return "✓ on target"
         case .under: return "\(s.delta) \(unit) to go"
         case .over: return "\(-s.delta) \(unit) over"
-        case .none: return " "
+        case .none: return ""
         }
     }
 
     private var entries: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Today").font(.headline)
+            Text("Today").font(.title3.weight(.semibold))
             ForEach(macros.cards) { card in
                 let t = card.totals
                 Button { macros.open(card) } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(card.title).font(.subheadline.bold()).foregroundStyle(.primary)
-                        Text("\(Int(t.kcal.rounded())) kcal · P\(Int(t.protein.rounded())) C\(Int(t.carbs.rounded())) F\(Int(t.fat.rounded()))")
-                            .font(.footnote).foregroundStyle(.secondary)
+                        Text(card.title).font(.system(size: 17, weight: .semibold, design: .rounded)).foregroundStyle(.primary)
+                        HStack(spacing: 10) {
+                            BigValue(value: "\(Int(t.kcal.rounded()))", unit: "kcal", color: Theme.pink, size: 20)
+                            Text("P \(Int(t.protein.rounded()))").foregroundStyle(Theme.lime)
+                            Text("C \(Int(t.carbs.rounded()))").foregroundStyle(Theme.cyan)
+                            Text("F \(Int(t.fat.rounded()))").foregroundStyle(Theme.purple)
+                        }
+                        .font(.footnote.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(macros.editing == card.id ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(14)
+                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                    .overlay { if macros.editing == card.id { RoundedRectangle(cornerRadius: 18).stroke(Theme.lime, lineWidth: 2) } }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit entry: \(card.title)")
@@ -118,13 +141,14 @@ struct MacrosView: View {
 
     private func editor(targets: Targets?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(macros.editing == nil ? "Add what you ate" : "Edit entry").font(.headline)
+            Text(macros.editing == nil ? "Add what you ate" : "Edit entry").font(.title3.weight(.semibold))
             TextEditor(text: $macros.text)
                 .frame(minHeight: macros.editing == nil ? 96 : 130)
-                .padding(6)
-                .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
                 .overlay(alignment: .topLeading) {
-                    if macros.text.isEmpty { Text("Breakfast: 2 eggs, toast with butter").foregroundStyle(.tertiary).padding(14).allowsHitTesting(false) }
+                    if macros.text.isEmpty { Text("Breakfast: 2 eggs, toast with butter").foregroundStyle(.tertiary).padding(16).allowsHitTesting(false) }
                 }
                 .disabled(macros.status == .parsing)
             HStack {
@@ -136,12 +160,18 @@ struct MacrosView: View {
                         if let uid = model.uid { macros.removeEditing(uid: uid, targets: targets, service: model.firestore) }
                     }
                 }
-                Button(buttonTitle) {
+                let canSubmit = !macros.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && macros.status != .parsing && smartNotes
+                Button {
                     guard let uid = model.uid else { return }
                     Task { await macros.submit(uid: uid, targets: targets, service: model.firestore) }
+                } label: {
+                    Text(buttonTitle).font(.headline).foregroundStyle(.black)
+                        .padding(.horizontal, 22).frame(height: 46)
+                        .background(Theme.lime, in: Capsule())
+                        .opacity(canSubmit ? 1 : 0.35)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(macros.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || macros.status == .parsing || !smartNotes)
+                .buttonStyle(.plain)
+                .disabled(!canSubmit)
             }
         }
     }

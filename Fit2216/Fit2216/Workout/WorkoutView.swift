@@ -9,12 +9,19 @@ struct WorkoutView: View {
         let week = Summary.week(plan: model.plan, logs: model.logs, model.now)
         let states = Dictionary(uniqueKeysWithValues: week.days.map { ($0.weekday, $0.state) })
 
-        List(Plan.sort(model.plan), id: \.day) { day in
-            NavigationLink {
-                DayDetailView(day: day)
-            } label: {
-                DayRow(day: day, state: states[day.day])
+        ScrollView {
+            VStack(spacing: 12) {
+                ForEach(Plan.sort(model.plan), id: \.day) { day in
+                    NavigationLink {
+                        DayDetailView(day: day)
+                    } label: {
+                        DayRow(day: day, state: states[day.day])
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
         .navigationTitle("Workout")
         .toolbar {
@@ -31,28 +38,40 @@ private struct DayRow: View {
     private var muscles: String { Muscles.forDay(day).keys.map(\.label).sorted().joined(separator: " · ") }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(weekdayName).font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
-                Spacer()
-                if let badge = badge { Text(badge.0).font(.caption.bold()).foregroundStyle(badge.1) }
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(weekdayName.uppercased()).font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text(day.name).font(.system(size: 24, weight: .bold, design: .rounded))
+                if day.type == .rest || day.exercises.isEmpty {
+                    Text("Rest day").font(.subheadline).foregroundStyle(.secondary)
+                } else {
+                    Text(muscles).font(.subheadline).foregroundStyle(.secondary)
+                    HStack(spacing: 14) {
+                        BigValue(value: "\(day.exercises.count)", unit: "exercises", color: Theme.lime, size: 22)
+                        BigValue(value: "\(Plan.plannedSets(day))", unit: "sets", color: Theme.cyan, size: 22)
+                    }
+                    .padding(.top, 2)
+                }
             }
-            Text(day.name).font(.headline)
-            if day.type == .rest || day.exercises.isEmpty {
-                Text("Rest").font(.subheadline).foregroundStyle(.secondary)
-            } else {
-                Text(muscles).font(.subheadline).foregroundStyle(.secondary)
-                Text("\(day.exercises.count) exercises · \(Plan.plannedSets(day)) sets").font(.footnote).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 10) {
+                if let badge {
+                    Text(badge.0).font(.caption.weight(.bold)).foregroundStyle(badge.1)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(badge.1.opacity(0.18), in: Capsule())
+                }
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 2)
+        .card()
+        .overlay { if state == .today { RoundedRectangle(cornerRadius: 22).stroke(Theme.lime, lineWidth: 2) } }
     }
 
     private var badge: (String, Color)? {
         switch state {
-        case .done: return ("Done", Color.green)
-        case .missed: return ("Missed", Color.red)
-        case .today: return ("Today", Color.blue)
+        case .done: return ("Done", Theme.lime)
+        case .missed: return ("Missed", Theme.pink)
+        case .today: return ("Today", Theme.lime)
         case .skipped: return ("Skipped", Color.orange)
         default: return nil
         }
@@ -65,26 +84,34 @@ struct DayDetailView: View {
     @State private var logging: LoggingTarget?
 
     var body: some View {
-        List {
-            if let notes = day.notes, !notes.isEmpty { Section { Text(notes) } }
-            Section("Exercises") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let notes = day.notes, !notes.isEmpty {
+                    Text(notes).font(.subheadline).card()
+                }
                 ForEach(day.exercises, id: \.name) { e in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(e.name + (e.optional == true ? " (optional)" : "")).font(.headline)
-                        Text("\(e.sets) × \(e.reps) · rest \(Plan.clock(Double(Plan.restSeconds(e))))").font(.footnote).foregroundStyle(.secondary)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(e.name + (e.optional == true ? " (optional)" : "")).font(.system(size: 20, weight: .semibold, design: .rounded))
+                            Text("rest \(Plan.clock(Double(Plan.restSeconds(e))))").font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        BigValue(value: "\(e.sets) × \(e.reps)", color: Theme.lime, size: 24)
                     }
+                    .card()
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
         .navigationTitle(day.name)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             if day.type != .rest && !day.exercises.isEmpty {
-                Button { logging = LoggingTarget(day: day) } label: { Text("Start this workout").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                Button { logging = LoggingTarget(day: day) } label: { Text("Start this workout").limeCapsule(enabled: model.canLog) }
+                    .buttonStyle(.plain)
                     .disabled(!model.canLog)
-                    .padding(.horizontal).padding(.vertical, 8)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
                     .background(.bar)
             }
         }

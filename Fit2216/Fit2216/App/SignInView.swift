@@ -9,34 +9,48 @@ struct SignInView: View {
     @State private var info: String?
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Fit2216").font(.largeTitle.bold())
+        VStack(spacing: 14) {
+            Spacer(minLength: 0)
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 84, height: 84)
+                .background(Theme.lime, in: RoundedRectangle(cornerRadius: 22))
+                .padding(.bottom, 6)
+            Text("Fit2216").font(.system(size: 40, weight: .bold, design: .rounded))
+            Text("Your workouts, weight and food.").font(.subheadline).foregroundStyle(.secondary).padding(.bottom, 18)
+
             TextField("Email", text: $email)
                 .textContentType(.username)
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .textFieldStyle(.roundedBorder)
+                .padding(16)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
             SecureField("Password", text: $password)
                 .textContentType(.password)
-                .textFieldStyle(.roundedBorder)
+                .padding(16)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
             if let message {
-                Text(message).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+                Text(message).font(.footnote).foregroundStyle(Theme.pink).multilineTextAlignment(.center)
             }
             if let info {
                 Text(info).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
+            let ready = !(busy || email.isEmpty || password.isEmpty)
             Button {
                 Task { await signIn() }
             } label: {
-                if busy { ProgressView() } else { Text("Sign in").frame(maxWidth: .infinity) }
+                Group { if busy { ProgressView().tint(.black) } else { Text("Sign in") } }
+                    .limeCapsule(enabled: ready)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(busy || email.isEmpty || password.isEmpty)
+            .buttonStyle(.plain)
+            .disabled(!ready)
+            .padding(.top, 6)
             Button("Forgot password?") { Task { await reset() } }
                 .font(.footnote)
                 .disabled(busy)
+            Spacer(minLength: 0)
         }
         .padding(24)
     }

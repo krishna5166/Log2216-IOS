@@ -51,3 +51,34 @@ struct Ring: View {
         .animation(.easeOut(duration: 0.6), value: progress)
     }
 }
+
+extension View {
+    /// The big lime call-to-action button look (use inside a plain-style Button label).
+    func limeCapsule(height: CGFloat = 58, enabled: Bool = true) -> some View {
+        self.font(.title3.bold())
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .foregroundStyle(.black)
+            .background(Theme.lime, in: Capsule())
+            .opacity(enabled ? 1 : 0.35)
+    }
+}
+
+/// A titled card: the building block of every screen.
+struct SectionCard<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !title.isEmpty { Text(title).font(.title3.weight(.semibold)) }
+            content
+        }
+        .card()
+    }
+}
