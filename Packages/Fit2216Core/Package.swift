@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 // Platform-neutral logic for the Fit2216 iPhone and Apple Watch apps. Foundation only: no UIKit, SwiftUI or Firebase,
@@ -10,5 +10,6 @@ let package = Package(
     targets: [
         .target(name: "Fit2216Core"),
         .testTarget(name: "Fit2216CoreTests", dependencies: ["Fit2216Core"]),
-    ]
+    ],
+    swiftLanguageModes: [.v5] // keep Swift 5 rules; the logic does not need Swift 6 strict concurrency
 )
