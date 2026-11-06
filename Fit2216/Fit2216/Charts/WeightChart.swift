@@ -25,7 +25,7 @@ struct WeightChart: View {
                 ForEach(Array(segment.pts.enumerated()), id: \.offset) { _, p in
                     AreaMark(x: .value("Date", Date(timeIntervalSince1970: p.t)),
                              yStart: .value("Target", shown(baselineKg ?? 0)), yEnd: .value("Weight", p.v), series: .value("Stretch", i))
-                        .foregroundStyle(Insights.baselineTone(above: segment.above, goal: goal) == .good ? Color.green.opacity(0.25) : Color.red.opacity(0.25))
+                        .foregroundStyle(Insights.baselineTone(above: segment.above, goal: goal) == .good ? Theme.lime.opacity(0.10) : Theme.pink.opacity(0.12))
                 }
             }
             if let baselineKg {

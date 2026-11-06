@@ -62,7 +62,7 @@ struct InsightsView: View {
                 if let change = recap.changeKg {
                     LabeledContent("Weight", value: "\(change >= 0 ? "+" : "")\(Units.tidy(Units.fromKg(change, to: model.profile.bodyUnit))) \(model.profile.bodyUnit.rawValue)")
                 }
-                if let avg = recap.macroAvg { LabeledContent("Food targets", value: "\(avg)% on average (\(recap.macroDays) days)") }
+                if let avg = recap.macroAvg { LabeledContent("Food targets", value: "\(avg)% on average (\(recap.macroDays) \(recap.macroDays == 1 ? "day" : "days"))") }
             }
 
             SectionCard("Consistency") { ConsistencyGrid(weeks: calendar) }

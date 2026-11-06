@@ -39,16 +39,24 @@ struct MacroDaysChart: View {
     let days: [(date: String, pct: Int?)]
 
     var body: some View {
+        let first = days.first.flatMap { Dates.parse($0.date) } ?? Date()
+        let last = days.last.flatMap { Dates.parse($0.date) } ?? Date()
         Chart {
             ForEach(days, id: \.date) { d in
                 if let pct = d.pct {
                     BarMark(x: .value("Day", Dates.parse(d.date) ?? Date(), unit: .day), y: .value("Hit", pct))
-                        .foregroundStyle(pct >= 75 ? Color.green : Color.gray)
+                        .foregroundStyle(pct >= 75 ? Theme.lime : Color.white.opacity(0.35))
                 }
             }
             RuleMark(y: .value("Good day", 75)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4])).foregroundStyle(.secondary)
         }
         .chartYScale(domain: 0...100)
+        .chartXScale(domain: first...Calendar.current.date(byAdding: .day, value: 1, to: last)!)
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .day)) { _ in
+                AxisValueLabel(format: .dateTime.weekday(.narrow), centered: true)
+            }
+        }
         .frame(height: 140)
         .accessibilityLabel("Food targets hit, last 7 days")
     }

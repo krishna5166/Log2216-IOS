@@ -62,7 +62,8 @@ final class MacrosModel {
 
     private func persist(uid: String, targets: Targets?, service: FirestoreService) {
         guard loaded else { return }
-        let pct = Food.completionPercent(totals, targets: targets)
+        // No meals means no day to score: opening the screen must not store a 0% day.
+        let pct = cards.isEmpty ? nil : Food.completionPercent(totals, targets: targets)
         service.saveFoodDay(uid: uid, date: date, day: FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct), completion: nil)
     }
 
