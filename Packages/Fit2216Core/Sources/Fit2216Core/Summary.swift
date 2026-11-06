@@ -49,3 +49,89 @@ public enum Summary {
         return count
     }
 }
+
+// MARK: - Week strip, what is left today, body card, recent best
+
+public struct WeekDay: Equatable, Sendable {
+    public enum State: Sendable { case none, rest, done, skipped, missed, today, upcoming }
+    public var date: String
+    public var weekday: Int          // 0 = Sunday
+    public var day: TemplateDay?
+    public var state: State
+    public var isToday: Bool
+}
+
+public struct WeekSummary: Equatable, Sendable {
+    public var days: [WeekDay]       // Monday to Sunday
+    public var done: Int             // training days handled
+    public var planned: Int          // training days in the plan
+}
+
+public struct RemainingExercise: Equatable, Sendable {
+    public var name: String
+    public var setsLeft: Int
+    public var optional: Bool
+}
+
+public struct BodySummary: Equatable, Sendable {
+    public var latestKg: Double
+    public var latestDate: String
+    public var averageKg: Double         // trailing 7-day average at the latest entry
+    public var perWeekKg: Double?        // 4-week trend, nil without enough data
+    public var baselineKg: Double?
+    public var projection: Projection?
+}
+
+extension Summary {
+    /// Monday to Sunday: which days are done, missed, today or still ahead.
+    public static func week(plan: [TemplateDay], logs: [WorkoutLog], _ now: Date, _ cal: Calendar = .current) -> WeekSummary {
+        let today = Dates.localDate(now, cal)
+        var days: [WeekDay] = []
+        var done = 0, planned = 0
+        for d in Dates.weekDates(now, cal) {
+            let date = Dates.localDate(d, cal), weekday = Dates.weekday(d, cal)
+            let day = plan.first { $0.day == weekday }
+            var state: WeekDay.State
+            if let day, day.type != .rest, !day.exercises.isEmpty {
+                planned += 1
+                let log = logs.first { $0.date == date && Plan.matches($0, day) }
+                if log?.skipped == true { state = .skipped }
+                else if let log, Plan.isComplete(log, day) { state = .done; done += 1 }
+                else if date == today { state = .today }
+                else if date < today { state = .missed }
+                else { state = .upcoming }
+            } else {
+                state = day == nil ? .none : .rest
+            }
+            days.append(WeekDay(date: date, weekday: weekday, day: day, state: state, isToday: date == today))
+        }
+        return WeekSummary(days: days, done: done, planned: planned)
+    }
+
+    /// The exercises of `day` that still have sets to log, required ones first.
+    public static func remaining(day: TemplateDay, log: WorkoutLog?) -> [RemainingExercise] {
+        let all = day.exercises.compactMap { e -> RemainingExercise? in
+            let logged = (log?.sets[e.name] ?? []).filter { Plan.filled($0) }.count
+            let left = max(0, e.sets - logged)
+            guard left > 0 else { return nil }
+            return RemainingExercise(name: log.map { Plan.effectiveName($0, e.name) } ?? e.name, setsLeft: left, optional: e.optional == true)
+        }
+        return all.filter { !$0.optional } + all.filter { $0.optional }
+    }
+
+    /// Weight card: latest weigh-in, smoothed weight, 4-week pace and where it leads, measured against your target (or a healthy weight for your height).
+    public static func body(weights: [WeightEntry], profile: Profile, _ now: Date, _ cal: Calendar = .current) -> BodySummary? {
+        let asc = weights.sorted { $0.date < $1.date }
+        guard let latest = asc.last, let avg = Insights.movingAverage(asc, days: 7, cal).last else { return nil }
+        let trend = Insights.weightTrend(asc, now, cal)?.perWeek
+        let baseline = Insights.baselineWeight(heightCm: profile.heightCm, targetWeightKg: profile.targetWeightKg)?.kg
+        var projection: Projection?
+        if let trend, let baseline { projection = Insights.projectToBaseline(currentKg: avg.kg, perWeekKg: trend, baselineKg: baseline, now, cal) }
+        return BodySummary(latestKg: latest.kg, latestDate: latest.date, averageKg: avg.kg, perWeekKg: trend, baselineKg: baseline, projection: projection)
+    }
+
+    /// The newest personal record in the last two weeks, if any.
+    public static func recentBest(logs: [WorkoutLog], _ now: Date, _ cal: Calendar = .current) -> PersonalRecord? {
+        Insights.recentPRs(Insights.liftHistory(logs), now, days: 14, limit: 1, cal).first
+    }
+}

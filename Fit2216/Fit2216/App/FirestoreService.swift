@@ -18,4 +18,13 @@ struct FirestoreService {
             .getDocuments()
         return snapshot.documents.compactMap { FirestoreDecoding.decode(WorkoutLog.self, from: $0.data()) }
     }
+
+    func loadWeights(uid: String, limit: Int = 120) async throws -> [WeightEntry] {
+        let snapshot = try await Firestore.firestore()
+            .collection("users").document(uid).collection("weights")
+            .order(by: "date", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+        return snapshot.documents.compactMap { FirestoreDecoding.decode(WeightEntry.self, from: $0.data()) }
+    }
 }

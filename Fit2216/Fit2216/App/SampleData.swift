@@ -43,4 +43,13 @@ enum SampleData {
         }
         return out
     }
+
+    /// Four weeks of weigh-ins drifting down, for previews.
+    static func weights(now: Date = Date()) -> [WeightEntry] {
+        let cal = Calendar.current
+        return (0..<5).compactMap { i -> WeightEntry? in
+            guard let d = cal.date(byAdding: .day, value: -(28 - i * 7), to: now) else { return nil }
+            return WeightEntry(date: Dates.localDate(d, cal), kg: 80 - Double(i) * 0.5)
+        }
+    }
 }
