@@ -16,6 +16,7 @@ Fit2216: a private two-person workout, body-weight and macros app. The web versi
 - Circle tab is dropped entirely. The only social feature kept is copy-workout: copy an entire session from the other person's recent log into your own log. Accessible from the Plan tab or a share sheet on a logged session. No Circle members tab, no macro sync toggle, no circle requests.
 - Strength tracking blends two metrics: total weekly volume (weight × reps) as the main signal, with estimated one-RM as a secondary reference. One-RM alone is too peak-focused; volume alone rewards junk volume.
 - Insights page does NOT show individual per-lift graphs. Per-lift trend (sparkline) lives on the exercise's set page during a workout, so the user sees progressive overload at the moment of loading the bar.
+- The set-page sparkline shows that lift's **overall progress** (volume and intensity blended across all logged sets for that lift), not one-RM alone. Visually: a faint horizontal baseline at the midline of the sparkline area plus a very light fill beneath the curve — no axes, labels, gridlines, or numbers.
 
 ## Navigation (iOS)
 - **Summary** (landing tab): activity rings at the top (HealthKit read-only, or a custom SwiftUI approximation if HealthKit entitlement is not yet wired — see open items). Below the rings, today's session card: day name, target muscles, planned sets, sets-done vs planned, streak count. Fixed Start button anchored at the bottom of the screen above the tab bar (never scrolls off). Tapping the card opens the deeper progress view.
@@ -34,11 +35,11 @@ Reference implementation of every rule: web code in `app/src/lib/*.ts` of the we
 2. **HealthKit rings decision** — brief says read-only HealthKit rings on Summary; current build uses a custom SwiftUI approximation (sets-today, workouts-this-week). Either wire the real HealthKit API or rewrite this brief line to match the custom rings.
 3. **Macros auto-retry on reconnect** — PWA re-submitted AI calls when the network returned; iOS currently waits for a manual Retry tap.
 4. **Overall strength graph on Insights** — headline chart, dropdown filter: Overall (default), Lower body, Upper body, Chest, Legs, plus other core muscle groups. Blended metric: weekly volume as main line, estimated one-RM as secondary. Hide or gray out groups below a minimum session count.
-5. **Per-lift sparkline on the set page** — during a workout, on each exercise's set screen, show that lift's one-RM trend as a compact sparkline so the user sees at a glance whether today's number is progressive or declining.
+5. **Per-lift sparkline on the set page** — during a workout, on each exercise's set screen, show that lift's overall progress trend as a compact sparkline (volume and intensity blended across all logged sets for that lift, not one-RM alone) so the user sees at a glance whether today's number is progressive or declining. Style: faint horizontal baseline at the midline plus a very light fill beneath the curve; no axes, labels, gridlines, or numbers.
 6. **Set-page redesign (Fitness lock-screen style)** — redesign the exercise set screen to match the Apple Fitness workout lock screen aesthetic:
    - Stacked set numbers vertically (numbered circles, one per planned set for that exercise — e.g. three squats show three numbered entries), not a horizontal scroller.
    - Big weight and reps display per set with minus/plus controls, matching the current dark-theme number style.
-   - Thin one-RM sparkline for that lift across the bottom of the set area (no axes or labels — just the trend line).
+   - Thin overall-progress sparkline for that lift across the bottom of the set area (faint midline baseline + light fill beneath the curve, no axes or labels — just the trend line).
    - Prominent overall session timer (elapsed time since workout start, yellow digits like Fitness's 60:35 counter).
    - Next button pinned at the bottom to advance to the following exercise; Previous available too.
    - Rest timer pill retained from the current redesign.
