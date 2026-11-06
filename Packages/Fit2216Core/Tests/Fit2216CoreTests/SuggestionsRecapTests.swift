@@ -1,7 +1,7 @@
 import XCTest
 @testable import Fit2216Core
 
-final class ProgressRecapTests: XCTestCase {
+final class SuggestionsRecapTests: XCTestCase {
     private let now = day(2026, 10, 28) // Wednesday
     private func s(_ w: String, _ r: String) -> SetLog { SetLog(weight: w, reps: r) }
     private let bench = TemplateExercise(name: "Bench", sets: 2, reps: "4–6")
@@ -11,34 +11,34 @@ final class ProgressRecapTests: XCTestCase {
     // MARK: next week
 
     func testASessionAtTheTopOfTheRangeSuggestsOneStepMore() {
-        let p = Progress.progression(plan: plan, logs: [log("2026-10-26", [s("100", "6"), s("100", "6")])], unit: .lb, now, cal)
+        let p = Suggestions.progression(plan: plan, logs: [log("2026-10-26", [s("100", "6"), s("100", "6")])], unit: .lb, now, cal)
         XCTAssertEqual(p.raise, [Raise(name: "Bench", from: 100, to: 105)])
         XCTAssertTrue(p.stalled.isEmpty); XCTAssertFalse(p.deload)
         // missing a rep, or a session older than three weeks, suggests nothing
-        XCTAssertTrue(Progress.progression(plan: plan, logs: [log("2026-10-26", [s("100", "6"), s("100", "5")])], unit: .lb, now, cal).raise.isEmpty)
-        XCTAssertTrue(Progress.progression(plan: plan, logs: [log("2026-09-20", [s("100", "6"), s("100", "6")])], unit: .lb, now, cal).raise.isEmpty)
+        XCTAssertTrue(Suggestions.progression(plan: plan, logs: [log("2026-10-26", [s("100", "6"), s("100", "5")])], unit: .lb, now, cal).raise.isEmpty)
+        XCTAssertTrue(Suggestions.progression(plan: plan, logs: [log("2026-09-20", [s("100", "6"), s("100", "6")])], unit: .lb, now, cal).raise.isEmpty)
     }
 
     func testAStalledLiftNeedsFourSessionsTwoWeeksAndNoNewBest() {
         // best early, then three flat sessions over 3 weeks
         let logs = [log("2026-09-01", [s("120", "5")]), log("2026-10-07", [s("100", "5")]), log("2026-10-14", [s("100", "5")]), log("2026-10-26", [s("100", "5")])]
-        let p = Progress.progression(plan: plan, logs: logs, unit: .lb, now, cal)
+        let p = Suggestions.progression(plan: plan, logs: logs, unit: .lb, now, cal)
         XCTAssertEqual(p.stalled.count, 1); XCTAssertEqual(p.stalled[0].name, "Bench"); XCTAssertEqual(p.stalled[0].sessions, 4)
         XCTAssertEqual(p.stalled[0].deloadTo, 90) // 90% of 100 lb, to the nearest 5
         XCTAssertFalse(p.deload) // one lift is not a deload
         // a new best in the last three means not stalled
         let better = logs + [log("2026-10-27", [s("130", "5")])]
-        XCTAssertTrue(Progress.progression(plan: plan, logs: better, unit: .lb, now, cal).stalled.isEmpty)
+        XCTAssertTrue(Suggestions.progression(plan: plan, logs: better, unit: .lb, now, cal).stalled.isEmpty)
         // three sessions in under two weeks is not enough time
         let quick = [log("2026-09-01", [s("120", "5")]), log("2026-10-20", [s("100", "5")]), log("2026-10-24", [s("100", "5")]), log("2026-10-26", [s("100", "5")])]
-        XCTAssertTrue(Progress.progression(plan: plan, logs: quick, unit: .lb, now, cal).stalled.isEmpty)
+        XCTAssertTrue(Suggestions.progression(plan: plan, logs: quick, unit: .lb, now, cal).stalled.isEmpty)
     }
 
     func testTwoStalledLiftsSuggestADeload() {
         let two = [TemplateDay(day: 1, name: "Push", exercises: [bench, TemplateExercise(name: "Row", sets: 2, reps: "8")])]
         func both(_ d: String, _ w: String) -> WorkoutLog { WorkoutLog(date: d, dayName: "Push", dayIndex: 1, unit: .lb, done: true, sets: ["Bench": [s(w, "5")], "Row": [s(w, "5")]]) }
         let logs = [both("2026-09-01", "120"), both("2026-10-07", "100"), both("2026-10-14", "100"), both("2026-10-26", "100")]
-        XCTAssertTrue(Progress.progression(plan: two, logs: logs, unit: .lb, now, cal).deload)
+        XCTAssertTrue(Suggestions.progression(plan: two, logs: logs, unit: .lb, now, cal).deload)
     }
 
     // MARK: recap

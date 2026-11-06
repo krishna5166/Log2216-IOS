@@ -12,15 +12,9 @@ same documents, so history carries over and both can be used side by side while 
 ## Run the tests
 In Xcode: File → Open → `Packages/Fit2216Core`, then Product → Test (⌘U). From a terminal: `cd Packages/Fit2216Core && swift test`.
 
-## Roadmap (see docs/AGENT_BRIEF.md for the decisions behind it)
-1. Core logic package: models, units, dates, plan, muscles, insights and goal projection. **Done** (50 tests).
-2. Core, continued: spreadsheet (CSV) import/export, copy-workout from the other person's log.
-3. iPhone app shell: sign-in, load the plan, tab bar (Summary, Workout, Macros, Insights), profile icon for Settings.
-4. Summary: HealthKit rings (read-only), today's session card with target muscles, sets done vs planned and streak, fixed Start button.
-5. Logging: exercise screen, rest timer as a local notification, Previous and the jump list.
-6. Macros and Insights screens, rebuilt in SwiftUI from the web app.
-7. Optional HealthKit samples (separate entries, no workout session).
-No Apple Watch app and no Circle tab. Distribution: unlisted App Store link, TestFlight also available.
+## Status
+The iPhone app now covers the web app's features (see `docs/IOS_STATUS.md` for the table, what is deliberately left out, and the setup only you can do).
+Next: your review on a real phone, then Sreeja's phone (TestFlight or unlisted link), then two weeks side by side before the PWA is frozen.
 
 ## Rules
 - Never commit `GoogleService-Info.plist`, keys or signing files (the `.gitignore` blocks them).

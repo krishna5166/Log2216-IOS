@@ -15,7 +15,7 @@ struct InsightsView: View {
         let weeks = Insights.weeklyStats(model.logs, plan: model.plan, now, weeks: Insights.chartWeeks(model.logs, now, max: 8))
         let records = Insights.recentPRs(Insights.liftHistory(model.logs), now)
         let baseline = Insights.baselineWeight(heightCm: model.profile.heightCm, targetWeightKg: model.profile.targetWeightKg)
-        let progression = Progress.progression(plan: model.plan, logs: model.logs, unit: model.profile.gymUnit, now)
+        let progression = Suggestions.progression(plan: model.plan, logs: model.logs, unit: model.profile.gymUnit, now)
         let recap = Recap.week(plan: model.plan, logs: model.logs, weights: model.weights, percents: macroPercents, now)
         let calendar = Recap.calendarWeeks(plan: model.plan, logs: model.logs, percents: macroPercents, now)
         let today = Dates.localDate(now)

@@ -8,7 +8,7 @@ public struct Progression: Equatable, Sendable { public var raise: [Raise]; publ
 /// - raise: the last session hit the top of the rep range on every set (within three weeks): add one step;
 /// - stalled: four or more sessions where the last three set no new best estimated max over at least two weeks;
 /// - deload: two or more lifts stalled at once (usually tiredness, not one bad lift): about 90% of the working weight.
-public enum Progress {
+public enum Suggestions {
     public static func progression(plan: [TemplateDay], logs: [WorkoutLog], unit: WeightUnit, _ now: Date, _ cal: Calendar = .current) -> Progression {
         let today = Dates.localDate(now, cal)
         let tomorrow = Dates.addDays(today, 1, cal)
