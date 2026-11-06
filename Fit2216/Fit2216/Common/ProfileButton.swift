@@ -12,12 +12,7 @@ private struct ProfileButton: ViewModifier {
                         .accessibilityLabel("Profile and settings")
                 }
             }
-            .sheet(isPresented: $showSettings) {
-                NavigationStack {
-                    ContentUnavailableView("Settings", systemImage: "gearshape", description: Text("Units, backup, spreadsheet and sign-out go here."))
-                        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showSettings = false } } }
-                }
-            }
+            .sheet(isPresented: $showSettings) { SettingsView { showSettings = false } }
     }
 }
 

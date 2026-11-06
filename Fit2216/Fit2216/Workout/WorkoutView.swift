@@ -34,5 +34,5 @@ private struct DayRow: View {
 }
 
 #Preview {
-    NavigationStack { WorkoutView() }.environment(AppModel())
+    NavigationStack { WorkoutView() }.environment(AppModel.sample())
 }

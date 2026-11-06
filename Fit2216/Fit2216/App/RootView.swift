@@ -16,5 +16,5 @@ struct RootView: View {
 }
 
 #Preview {
-    RootView().environment(AppModel())
+    RootView().environment(AppModel.sample())
 }

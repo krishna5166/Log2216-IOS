@@ -2,16 +2,48 @@ import SwiftUI
 import Observation
 import Fit2216Core
 
-/// What the screens read. For now it holds sample data; the Firestore-backed store replaces it later without changing the screens.
+/// What the screens read: the signed-in person's plan, recent workouts and profile.
 @Observable
 final class AppModel {
-    var plan: [TemplateDay]
-    var logs: [WorkoutLog]
-
-    init(plan: [TemplateDay] = SampleData.plan, logs: [WorkoutLog] = SampleData.logsThisWeek(plan: SampleData.plan)) {
-        self.plan = plan
-        self.logs = logs
+    enum Phase: Equatable {
+        case idle
+        case loading
+        case ready
+        case failed(String)
     }
 
+    var plan: [TemplateDay] = []
+    var logs: [WorkoutLog] = []
+    var profile = Profile()
+    var phase: Phase = .idle
+
+    @ObservationIgnored private let service = FirestoreService()
+
     var now: Date { Date() }
+
+    func load(uid: String) async {
+        phase = .loading
+        do {
+            let doc = try await service.loadUserDoc(uid: uid)
+            plan = doc.plan
+            profile = doc.profile
+            logs = try await service.loadLogs(uid: uid)
+            phase = .ready
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    func reset() {
+        plan = []; logs = []; profile = Profile(); phase = .idle
+    }
+
+    /// Sample data for previews.
+    static func sample() -> AppModel {
+        let m = AppModel()
+        m.plan = SampleData.plan
+        m.logs = SampleData.logsThisWeek(plan: SampleData.plan)
+        m.phase = .ready
+        return m
+    }
 }

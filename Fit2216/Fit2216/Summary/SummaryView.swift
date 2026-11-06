@@ -119,5 +119,5 @@ private struct StartBar: View {
 }
 
 #Preview {
-    NavigationStack { SummaryView() }.environment(AppModel())
+    NavigationStack { SummaryView() }.environment(AppModel.sample())
 }
