@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import FirebaseFirestore
 import Fit2216Core
 
 /// What the screens read: the signed-in person's plan, recent workouts and profile.
