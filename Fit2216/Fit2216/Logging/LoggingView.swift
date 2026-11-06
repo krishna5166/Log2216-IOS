@@ -22,8 +22,12 @@ struct LoggingView: View {
             Group {
                 if let session {
                     ExerciseScreen(session: session)
+                } else if day.exercises.isEmpty {
+                    ContentUnavailableView("Nothing to log", systemImage: "bed.double", description: Text("This day has no exercises. Add some in Edit plan."))
+                } else if case .failed(let message) = model.phase {
+                    ContentUnavailableView("Could not load your data", systemImage: "exclamationmark.triangle", description: Text(message))
                 } else {
-                    ProgressView()
+                    ProgressView("Loading…")
                 }
             }
             .navigationTitle(day.name)
@@ -35,13 +39,34 @@ struct LoggingView: View {
                 }
             }
         }
-        .onAppear(perform: start)
+        .task(id: model.canLog) { await start() }
     }
 
-    private func start() {
-        guard session == nil else { return }
+    /// The workout as it is on the server right now (waiting at most a couple of seconds), so one started on another device is continued, not overwritten.
+    private func freshLog(id: String) async -> WorkoutLog? {
+        guard let uid = model.uid else { return nil }
+        let service = model.firestore
+        return await withTaskGroup(of: WorkoutLog?.self) { group in
+            group.addTask { (try? await service.loadLog(uid: uid, id: id)) ?? nil }
+            group.addTask { try? await Task.sleep(for: .seconds(2.5)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    private func start() async {
+        // Wait until the plan and workouts have loaded: starting from an empty copy would overwrite today's real workout.
+        guard session == nil, model.canLog, !day.exercises.isEmpty else { return }
         let date = Dates.localDate(model.now)
-        let log = Logging.open(day: day, date: date, existing: model.logs, gymUnit: model.profile.gymUnit)
+        var existing = model.logs
+        let id = "\(date)_\(day.day)"
+        if let fresh = await freshLog(id: id) {
+            existing.removeAll { Logging.documentID($0) == id }
+            existing.append(fresh)
+        }
+        guard session == nil else { return }
+        let log = Logging.open(day: day, date: date, existing: existing, gymUnit: model.profile.gymUnit)
         let followed = Logging.day(for: log, plan: model.plan, fallback: day)
         session = LoggingSession(day: followed, log: log, history: model.logs, timer: timer) { model.save($0) }
         RestTimer.requestPermission()
@@ -69,12 +94,30 @@ private struct ExerciseScreen: View {
                     ProgressView(value: Double(session.loggedCount), total: Double(max(e.sets, 1)))
                 }
 
+                if let pb = session.personalBest {
+                    Label("New personal best: \(Units.tidy(pb.weight)) \(session.unit.rawValue) × \(Int(pb.reps)) (estimated max up \(Units.tidy(pb.gain)) \(session.unit.rawValue))", systemImage: "trophy.fill")
+                        .font(.subheadline.bold()).foregroundStyle(.orange)
+                }
+
                 if let last = session.lastTime {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Last: \(Plan.formatSets(last.sets, unit: session.unit)) · \(Format.date(last.date))")
                             .font(.footnote).foregroundStyle(.secondary)
                         if session.readyToIncrease {
                             Text("Top of the range, so ↺ suggests +\(Units.tidy(Logging.step(session.unit))) \(session.unit.rawValue)").font(.footnote).foregroundStyle(.secondary)
+                        }
+                        if !session.earlier.isEmpty {
+                            DisclosureGroup("Earlier sessions") {
+                                ForEach(session.earlier, id: \.date) { s in
+                                    HStack {
+                                        Text(Format.date(s.date)).foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text(Plan.formatSets(s.sets, unit: session.unit))
+                                    }
+                                    .font(.footnote)
+                                }
+                            }
+                            .font(.footnote)
                         }
                     }
                 }
@@ -94,6 +137,7 @@ private struct ExerciseScreen: View {
                 Menu {
                     Button { showSwap = true } label: { Label("Swap exercise", systemImage: "arrow.triangle.2.circlepath") }
                     Button { session.finish(); dismiss() } label: { Label("Finish workout", systemImage: "checkmark.circle") }
+                        .disabled(!session.canFinish)
                     Button(role: .destructive) { confirmSkip = true } label: { Label("Skip this workout", systemImage: "forward") }
                 } label: { Image(systemName: "ellipsis.circle") }
                 .accessibilityLabel("More")
@@ -122,14 +166,14 @@ private struct SetRow: View {
                 Text("\(index + 1)").font(.headline).frame(width: 22)
                 StepperField(
                     placeholder: session.unit.rawValue,
-                    text: Binding(get: { row.weight }, set: { session.set(index, weight: $0) }),
+                    text: Binding(get: { row.weight }, set: { session.set(index, weight: Logging.numeric($0, decimal: true)) }),
                     keyboard: .decimalPad,
                     minus: { session.set(index, weight: Plan.step(row.weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step)) },
                     plus: { session.set(index, weight: Plan.step(row.weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step)) }
                 )
                 StepperField(
                     placeholder: "reps",
-                    text: Binding(get: { row.reps }, set: { session.set(index, reps: $0) }),
+                    text: Binding(get: { row.reps }, set: { session.set(index, reps: Logging.numeric($0, decimal: false)) }),
                     keyboard: .numberPad,
                     minus: { let v = Plan.step(row.reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); session.set(index, reps: v == "0" ? "" : v) },
                     plus: { session.set(index, reps: Plan.step(row.reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1)) }
@@ -196,7 +240,7 @@ private struct BottomBar: View {
                 Spacer()
 
                 if session.isLast {
-                    Button("Finish") { session.finish(); close() }.buttonStyle(.borderedProminent)
+                    Button("Finish") { session.finish(); close() }.buttonStyle(.borderedProminent).disabled(!session.canFinish)
                 } else {
                     Button { session.index += 1 } label: { Label("Next", systemImage: "chevron.right").labelStyle(.titleAndIcon) }
                         .buttonStyle(.borderedProminent)

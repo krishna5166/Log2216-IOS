@@ -33,10 +33,14 @@ extension FirestoreService {
         user(uid).setData(["plan": objects(plan), "library": library], merge: true)
     }
 
+    /// Changes only the named profile fields (`profile.heightCm` ...); nil removes a field. Creates the document if it does not exist yet.
     func updateProfile(uid: String, fields: [String: Any?]) {
-        var mapped: [String: Any] = [:]
-        for (key, value) in fields { mapped[key] = value ?? FieldValue.delete() }
-        user(uid).updateData(mapped)
+        var nested: [String: Any] = [:]
+        for (key, value) in fields where key.hasPrefix("profile.") {
+            nested[String(key.dropFirst("profile.".count))] = value ?? FieldValue.delete()
+        }
+        guard !nested.isEmpty else { return }
+        user(uid).setData(["profile": nested], merge: true)
     }
 
     // MARK: food
@@ -96,5 +100,30 @@ extension FirestoreService {
     func loadAllWeights(uid: String) async throws -> [WeightEntry] {
         let snapshot = try await user(uid).collection("weights").order(by: "date", descending: true).getDocuments()
         return snapshot.documents.compactMap { FirestoreDecoding.decode(WeightEntry.self, from: $0.data()) }
+    }
+
+    // MARK: loading
+
+    struct Loaded {
+        var doc: UserDoc
+        var logs: [WorkoutLog]
+        var weights: [WeightEntry]
+    }
+
+    /// Plan, profile, recent workouts and weigh-ins. With `.cache` it answers at once from what this phone already holds (and throws if it holds nothing).
+    func loadAll(uid: String, source: FirestoreSource) async throws -> Loaded {
+        let userSnap = try await user(uid).getDocument(source: source)
+        let doc = userSnap.data().flatMap { FirestoreDecoding.decode(UserDoc.self, from: $0) } ?? UserDoc()
+        let logSnap = try await user(uid).collection("logs").order(by: "date", descending: true).limit(to: 200).getDocuments(source: source)
+        let logs = logSnap.documents.compactMap { FirestoreDecoding.decode(WorkoutLog.self, from: $0.data()) }
+        let weightSnap = try? await user(uid).collection("weights").order(by: "date", descending: true).limit(to: 400).getDocuments(source: source)
+        let weights = weightSnap?.documents.compactMap { FirestoreDecoding.decode(WeightEntry.self, from: $0.data()) } ?? []
+        return Loaded(doc: doc, logs: logs, weights: weights)
+    }
+
+    /// One workout straight from the server, so a workout started on another device is not overwritten by an older copy here.
+    func loadLog(uid: String, id: String) async throws -> WorkoutLog? {
+        let snap = try await user(uid).collection("logs").document(id).getDocument(source: .server)
+        return snap.data().flatMap { FirestoreDecoding.decode(WorkoutLog.self, from: $0) }
     }
 }

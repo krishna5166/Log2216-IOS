@@ -36,7 +36,7 @@ public struct TemplateExercise: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
         name = try c.decode(String.self, forKey: .name) // an exercise with no name is dropped by its list
-        sets = c.lenientInt(.sets) ?? 3
+        sets = min(100, max(1, c.lenientInt(.sets) ?? 3)) // a plan with 0 or negative sets would break the screens
         reps = c.lenientString(.reps) ?? ""
         optional = c.lenientBool(.optional)
         alternatives = try? c.decodeIfPresent([String].self, forKey: .alternatives)
@@ -60,7 +60,9 @@ public struct TemplateDay: Codable, Equatable, Sendable {
     private enum Keys: String, CodingKey { case day, name, type, notes, exercises }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
-        day = try c.decode(Int.self, forKey: .day) // a day with no weekday is dropped by its list
+        let weekday = try c.decode(Int.self, forKey: .day)
+        guard (0...6).contains(weekday) else { throw DecodingError.dataCorruptedError(forKey: .day, in: c, debugDescription: "weekday out of range") } // dropped by its list
+        day = weekday
         name = c.lenientString(.name) ?? ""
         type = (try? c.decodeIfPresent(DayType.self, forKey: .type)) ?? .strength
         notes = c.lenientString(.notes)
@@ -91,7 +93,7 @@ public struct WorkoutLog: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: Keys.self)
         date = try c.decode(String.self, forKey: .date)
         dayName = c.lenientString(.dayName) ?? ""
-        dayIndex = c.lenientInt(.dayIndex)
+        dayIndex = c.lenientInt(.dayIndex).flatMap { (0...6).contains($0) ? $0 : nil }
         unit = try? c.decodeIfPresent(WeightUnit.self, forKey: .unit)
         done = c.lenientBool(.done)
         skipped = c.lenientBool(.skipped)

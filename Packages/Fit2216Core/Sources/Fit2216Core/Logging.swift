@@ -76,6 +76,19 @@ public enum Logging {
         return out
     }
 
+    /// Typed text cleaned to a number: digits only, or digits with one decimal point; a comma counts as the point; at most six characters.
+    public static func numeric(_ text: String, decimal: Bool) -> String {
+        if !decimal { return String(text.filter(\.isASCIIDigit).prefix(6)) }
+        var out = "", seenPoint = false
+        for ch in text.replacingOccurrences(of: ",", with: ".") {
+            if ch.isASCIIDigit { out.append(ch) } else if ch == ".", !seenPoint { out.append(ch); seenPoint = true }
+        }
+        return String(out.prefix(6))
+    }
+
+    /// A workout with nothing logged cannot be marked finished.
+    public static func canFinish(_ log: WorkoutLog) -> Bool { Plan.loggedSets(log) > 0 }
+
     public static func finished(_ log: WorkoutLog) -> WorkoutLog { var l = log; l.done = true; l.skipped = false; return l }
     public static func skipped(_ log: WorkoutLog) -> WorkoutLog { var l = log; l.skipped = true; l.done = false; return l }
 
@@ -99,4 +112,8 @@ public enum Logging {
         let isLastExercise = day.exercises.last?.name == exercise.name
         return !(isLastExercise && index >= exercise.sets - 1)
     }
+}
+
+private extension Character {
+    var isASCIIDigit: Bool { isASCII && isNumber }
 }

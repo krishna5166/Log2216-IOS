@@ -13,12 +13,13 @@ struct MacrosView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                loadRow
                 tiles(totals: totals, targets: targets)
                 if targets == nil {
                     Text("Fill in Body and targets (profile icon, then Settings) to see targets here.").font(.footnote).foregroundStyle(.secondary)
                 }
                 if !macros.cards.isEmpty { entries }
-                editor(targets: targets)
+                editor(targets: targets).disabled(!macros.loaded)
                 if !smartNotes { consent }
                 Text("Estimates from what you write, not medical advice. Each entry becomes a card; tap a card to edit just that entry.")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -34,12 +35,32 @@ struct MacrosView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase != .active, let uid = model.uid { macros.saveDraft(uid: uid, targets: targets, service: model.firestore) }
         }
+        .onChange(of: model.targets) { _, newTargets in
+            // targets can arrive after the screen opens: keep today's completion % in step
+            if macros.loaded, let uid = model.uid { macros.saveDraft(uid: uid, targets: newTargets, service: model.firestore) }
+        }
         .onDisappear {
             if let uid = model.uid { macros.saveDraft(uid: uid, targets: model.targets, service: model.firestore) }
         }
     }
 
     // MARK: pieces
+
+    @ViewBuilder private var loadRow: some View {
+        if let error = macros.loadError {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Couldn't load today's food: \(error)").font(.footnote).foregroundStyle(.secondary)
+                Button("Retry") { Task { await reloadDay() } }.font(.footnote.bold())
+            }
+        } else if !macros.loaded {
+            HStack(spacing: 8) { ProgressView(); Text("Loading today's food…").font(.footnote).foregroundStyle(.secondary) }
+        }
+    }
+
+    private func reloadDay() async {
+        guard let uid = model.uid else { return }
+        await macros.load(uid: uid, date: Dates.localDate(model.now), service: model.firestore)
+    }
 
     private func tiles(totals: Totals, targets: Targets?) -> some View {
         let rows: [(MacroKey, String, String)] = [(.kcal, "Calories", "kcal"), (.protein, "Protein", "g"), (.carbs, "Carbs", "g"), (.fat, "Fat", "g")]

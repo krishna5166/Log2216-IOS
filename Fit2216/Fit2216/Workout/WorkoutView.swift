@@ -60,6 +60,7 @@ private struct DayRow: View {
 }
 
 struct DayDetailView: View {
+    @Environment(AppModel.self) private var model
     let day: TemplateDay
     @State private var logging: LoggingTarget?
 
@@ -82,6 +83,7 @@ struct DayDetailView: View {
                 Button { logging = LoggingTarget(day: day) } label: { Text("Start this workout").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    .disabled(!model.canLog)
                     .padding(.horizontal).padding(.vertical, 8)
                     .background(.bar)
             }

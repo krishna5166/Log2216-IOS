@@ -87,7 +87,7 @@ public enum FirestoreDecoding {
 extension Profile {
     /// The profile fields to write to Firestore, keyed by their dotted path (`profile.heightCm`) so nothing else in the profile is touched.
     /// A nil value means "remove this field". Pass `targets` to keep the protein range in step with the new body details.
-    public func updateFields(targets: Targets?) -> [String: Any?] {
+    public func updateFields(targets: Targets?, only: Set<String>? = nil) -> [String: Any?] {
         var out: [String: Any?] = [
             "profile.name": name,
             "profile.units": units?.rawValue,
@@ -105,6 +105,7 @@ extension Profile {
             "profile.targetDate": targetDate,
         ]
         if let targets { out["profile.proteinMin"] = targets.proteinMin; out["profile.proteinMax"] = targets.proteinMax }
+        if let only { out = out.filter { only.contains($0.key) } }
         return out
     }
 }

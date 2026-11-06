@@ -12,6 +12,7 @@ struct RootView: View {
             NavigationStack { InsightsView().profileButton() }
                 .tabItem { Label("Insights", systemImage: "chart.line.uptrend.xyaxis") }
         }
+        .safeAreaInset(edge: .bottom) { RestBar().padding(.horizontal) } // the rest countdown stays visible on every tab
     }
 }
 

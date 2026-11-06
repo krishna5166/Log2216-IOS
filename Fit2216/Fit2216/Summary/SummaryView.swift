@@ -31,13 +31,18 @@ struct SummaryView: View {
         }
         .navigationTitle("Summary")
         .safeAreaInset(edge: .bottom) {
-            StartBar(session: session) {
+            StartBar(session: session, ready: model.canLog) {
                 guard let session else { return }
                 if session.state == .finished { reviewing = LoggingTarget(day: session.day) } else { logging = LoggingTarget(day: session.day) }
             }
         }
         .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
-        .sheet(item: $reviewing) { ReviewProgressView(day: $0.day) }
+        .sheet(item: $reviewing) { target in
+            ReviewProgressView(day: target.day) {
+                reviewing = nil
+                Task { try? await Task.sleep(for: .milliseconds(450)); logging = target } // after the sheet has closed
+            }
+        }
     }
 }
 
@@ -213,6 +218,7 @@ private struct BestCard: View {
 /// The Start button, pinned above the tab bar so it never scrolls away.
 private struct StartBar: View {
     let session: TodaySession?
+    let ready: Bool
     let action: () -> Void
 
     private var title: String {
@@ -229,7 +235,7 @@ private struct StartBar: View {
         Button(action: action) { Text(title).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6) }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(session == nil || session?.state == .rest || session?.state == .skipped)
+            .disabled(!ready || session == nil || session?.state == .rest || session?.state == .skipped)
             .padding(.horizontal)
             .padding(.vertical, 8)
             .background(.bar)

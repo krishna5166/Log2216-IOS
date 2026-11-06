@@ -16,6 +16,9 @@ final class MacrosModel {
     var editing: String?
     var status: Status = .idle
     private(set) var date = ""
+    /// False until today's food has been read. Nothing is written before then, so an unread day is never overwritten.
+    private(set) var loaded = false
+    var loadError: String?
 
     @ObservationIgnored private var stash = ""
     @ObservationIgnored private let ai = AIClient()
@@ -24,13 +27,21 @@ final class MacrosModel {
 
     func load(uid: String, date: String, service: FirestoreService) async {
         self.date = date
-        if let day = try? await service.loadFoodDay(uid: uid, date: date) {
+        loaded = false
+        loadError = nil
+        cards = []; text = ""; editing = nil; stash = ""; status = .idle
+        do {
+            let day = try await service.loadFoodDay(uid: uid, date: date)
             cards = day.cards
             text = day.draft ?? ""
+            loaded = true
+        } catch {
+            loadError = error.localizedDescription
         }
     }
 
     private func persist(uid: String, targets: Targets?, service: FirestoreService) {
+        guard loaded else { return }
         let pct = Food.completionPercent(totals, targets: targets)
         service.saveFoodDay(uid: uid, date: date, day: FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct))
     }
@@ -42,7 +53,7 @@ final class MacrosModel {
 
     func submit(uid: String, targets: Targets?, service: FirestoreService) async {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty, status != .parsing else { return }
+        guard loaded, !value.isEmpty, status != .parsing else { return }
         status = .parsing
         let items: [Meal]
         if let known = FoodMemory.lookup(uid: uid, text: value) {

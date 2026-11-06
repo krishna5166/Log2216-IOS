@@ -11,6 +11,8 @@ final class LoggingSession {
     let history: [WorkoutLog]
     let unit: WeightUnit
     var index: Int
+    /// Each lift's earlier sessions (workouts before today), computed once: used to spot a new personal best.
+    let lifts: [String: [LiftPoint]]
 
     @ObservationIgnored private let timer: RestTimer
     @ObservationIgnored private let onSave: (WorkoutLog) -> Void
@@ -23,6 +25,7 @@ final class LoggingSession {
         self.timer = timer
         self.onSave = onSave
         self.index = Logging.firstOpenIndex(day: day, log: log)
+        self.lifts = Insights.liftHistory(history.filter { $0.date < log.date })
     }
 
     var exercise: TemplateExercise { day.exercises[index] }
@@ -30,6 +33,16 @@ final class LoggingSession {
     var loggedCount: Int { Logging.setsLogged(log, exercise: exercise.name) }
     var isLast: Bool { index == day.exercises.count - 1 }
     var lastTime: (date: String, sets: [SetLog])? { Logging.lastTime(name: shownName, history: history, before: log.date, unit: unit) }
+
+    /// A set today that beat every earlier session of this lift.
+    var personalBest: PersonalBest? { PersonalBests.best(history: lifts[shownName], sets: log.sets[exercise.name] ?? [], unit: unit) }
+
+    /// The sessions before the last one (up to two more), for the "earlier sessions" list.
+    var earlier: [(date: String, sets: [SetLog])] {
+        Array(Plan.recentSessions(history, name: shownName, before: log.date, unit: unit, count: 3).dropFirst())
+    }
+
+    var canFinish: Bool { Logging.canFinish(log) }
 
     func rows() -> [SetLog] { Logging.rows(log, exercise: exercise) }
 
@@ -73,7 +86,9 @@ final class LoggingSession {
         timer.stop()
     }
 
+    /// Marks the workout done. A workout with nothing logged is left as it is.
     func finish() {
+        guard Logging.canFinish(log) else { timer.stop(); return }
         log = Logging.finished(log)
         onSave(log)
         timer.stop()

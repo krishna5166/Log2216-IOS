@@ -98,7 +98,7 @@ struct PastSessionDetail: View {
     private func binding(_ name: String, _ index: Int, weight: Bool) -> Binding<String> {
         Binding(
             get: { let r = draft.sets[name]?[index]; return (weight ? r?.weight : r?.reps) ?? "" },
-            set: { draft = Logging.setting(draft, exercise: name, index: index, weight: weight ? $0 : nil, reps: weight ? nil : $0) }
+            set: { let v = Logging.numeric($0, decimal: weight); draft = Logging.setting(draft, exercise: name, index: index, weight: weight ? v : nil, reps: weight ? nil : v) }
         )
     }
 }

@@ -14,8 +14,8 @@ struct PlanEditorView: View {
         List {
             if model.plan.isEmpty {
                 Section {
-                    Text("You have no plan yet. Start from the starter plan, or add days one by one.").font(.footnote).foregroundStyle(.secondary)
-                    Button("Use the starter plan") { model.savePlan(SampleData.plan) }
+                    Text("You have no plan yet. Start from a starter plan (a 6-day split you can change), or add days one by one.").font(.footnote).foregroundStyle(.secondary)
+                    Button("Use a starter plan") { model.savePlan(SampleData.plan) }
                 }
             }
             Section("Week") {

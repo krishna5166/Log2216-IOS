@@ -105,10 +105,13 @@ struct SettingsView: View {
     // MARK: actions
 
     private func setUnit(gym: WeightUnit? = nil, body: WeightUnit? = nil) {
-        var p = model.profile
-        if let gym { p.gymUnitSetting = gym }
-        if let body { p.bodyUnitSetting = body }
-        model.saveProfile(p)
+        var keys = Set<String>()
+        if gym != nil { keys.insert("profile.gymUnit") }
+        if body != nil { keys.insert("profile.bodyUnit") }
+        model.updateProfile(keys: keys) { p in
+            if let gym { p.gymUnitSetting = gym }
+            if let body { p.bodyUnitSetting = body }
+        }
     }
 
     private func readFile(_ result: Result<URL, Error>, then use: (String) -> Void) {

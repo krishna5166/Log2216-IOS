@@ -6,6 +6,7 @@ struct ReviewProgressView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var model
     let day: TemplateDay
+    let onEdit: () -> Void
 
     var body: some View {
         let now = model.now
@@ -33,7 +34,10 @@ struct ReviewProgressView: View {
             }
             .navigationTitle("Progress · \(day.name)")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Edit workout", action: onEdit) }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+            }
         }
     }
 }
