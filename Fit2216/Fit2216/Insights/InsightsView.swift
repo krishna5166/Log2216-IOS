@@ -121,6 +121,13 @@ struct InsightsView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }
+        .overlay {
+            if model.logs.isEmpty && model.weights.isEmpty {
+                ContentUnavailableView("Nothing to chart yet", systemImage: "chart.line.uptrend.xyaxis",
+                                       description: Text("Log a workout or a weigh-in and your progress shows up here."))
+                    .background(Color(.systemBackground))
+            }
+        }
         .navigationTitle("Insights")
         .sheet(isPresented: $showWeighIn) { WeighInSheet() }
         .task { await loadMacroDays() }

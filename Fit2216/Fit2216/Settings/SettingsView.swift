@@ -74,6 +74,14 @@ struct SettingsView: View {
                     Text("Every set and weigh-in, one per row. You can edit it and bring it back; the same date is replaced and nothing is deleted.")
                 }
 
+                Section {
+                    NavigationLink("Check exercise names") { TidyNamesView() }
+                } header: {
+                    Text("Data")
+                } footer: {
+                    Text("Finds one exercise saved under different spellings, so its history and trends stay together.")
+                }
+
                 Section { Button("Sign out", role: .destructive) { auth.signOut(); onDone() } }
             }
             .navigationTitle("Settings")

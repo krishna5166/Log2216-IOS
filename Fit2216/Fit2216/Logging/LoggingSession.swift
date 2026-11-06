@@ -85,7 +85,7 @@ final class LoggingSession {
     }
 
     var readyToIncrease: Bool { Plan.readyToIncrease(exercise, lastTime?.sets) }
-    var isSwapped: Bool { shownName != exercise.name }
+    var isSwapped: Bool { !(log.swaps?[exercise.name] ?? "").isEmpty }
     var isCopiedTemplate: Bool { log.template != nil }
 
     func skipWorkout() {

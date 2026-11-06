@@ -43,6 +43,8 @@ struct PastSessionDetail: View {
     let log: WorkoutLog
     @State private var draft: WorkoutLog
     @State private var confirmDelete = false
+    @State private var logging: LoggingTarget?
+    @State private var copyProblem: String?
 
     init(log: WorkoutLog) {
         self.log = log
@@ -89,11 +91,33 @@ struct PastSessionDetail: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") { model.save(draft); dismiss() }.disabled(draft == log)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button { repeatToday() } label: { Label("Repeat today", systemImage: "arrow.counterclockwise") }
+                    if let text = WorkoutCopy.export(log: log, plan: model.plan) {
+                        ShareLink(item: text) { Label("Share workout", systemImage: "square.and.arrow.up") }
+                    }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .accessibilityLabel("Copy or share this workout")
+            }
         }
+        .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
+        .alert("Can't copy yet", isPresented: Binding(get: { copyProblem != nil }, set: { if !$0 { copyProblem = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(copyProblem ?? "") }
         .confirmationDialog("Delete \(draft.dayName) on \(Format.date(draft.date))?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete workout", role: .destructive) { model.deleteLog(log); dismiss() }
             Button("Cancel", role: .cancel) {}
         } message: { Text("This can't be undone.") }
+    }
+
+    /// A fresh copy of this workout (its targets and swaps, no sets) for today.
+    private func repeatToday() {
+        guard let source = WorkoutCopy.sourceDay(for: log, plan: model.plan) else { copyProblem = "This workout has no exercises to copy."; return }
+        switch model.startCopy(of: source, logged: log) {
+        case .ready(let day): logging = LoggingTarget(day: day)
+        case .blocked(let why): copyProblem = why
+        }
     }
 
     private func binding(_ name: String, _ index: Int, weight: Bool) -> Binding<String> {

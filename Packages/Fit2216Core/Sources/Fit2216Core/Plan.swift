@@ -26,8 +26,8 @@ public enum Plan {
     public static func bottomReps(_ reps: String) -> Int { numbers(in: reps).first ?? 0 }
 
     public static func effectiveName(_ log: WorkoutLog, _ original: String) -> String {
-        if let swapped = log.swaps?[original], !swapped.isEmpty { return swapped }
-        return original
+        if let swapped = log.swaps?[original], !swapped.isEmpty { return ExerciseNames.canonical(swapped) }
+        return ExerciseNames.canonical(original)
     }
 
     public static func filled(_ s: SetLog?) -> Bool { s != nil && s!.reps != "" }

@@ -4,6 +4,8 @@ import Fit2216Core
 /// The plan and schedule. Any day can be opened and started, which covers a missed day or doing Friday's workout on Thursday.
 struct WorkoutView: View {
     @Environment(AppModel.self) private var model
+    @State private var importing = false
+    @State private var logging: LoggingTarget?
 
     var body: some View {
         let week = Summary.week(plan: model.plan, logs: model.logs, model.now)
@@ -26,7 +28,17 @@ struct WorkoutView: View {
         .navigationTitle("Workout")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { NavigationLink("Edit plan") { PlanEditorView() } }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { importing = true } label: { Image(systemName: "square.and.arrow.down") }
+                    .accessibilityLabel("Import a shared workout")
+            }
         }
+        .sheet(isPresented: $importing) {
+            ImportWorkoutSheet { day in
+                Task { try? await Task.sleep(for: .milliseconds(450)); logging = LoggingTarget(day: day) } // after the sheet has closed
+            }
+        }
+        .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
     }
 }
 

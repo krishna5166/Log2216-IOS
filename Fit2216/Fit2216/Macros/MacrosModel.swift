@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import Network
 import Fit2216Core
 
 /// Today's food: the entries, the text being written, and turning text into calories through the server.
@@ -22,6 +23,25 @@ final class MacrosModel {
 
     @ObservationIgnored private var stash = ""
     @ObservationIgnored private let ai = AIClient()
+    @ObservationIgnored private let monitor = NWPathMonitor()
+    /// What to run again when the connection comes back after a "no connection" or "too slow" failure.
+    @ObservationIgnored private var pendingRetry: (() async -> Void)?
+
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard path.status == .satisfied else { return }
+            Task { @MainActor in await self?.connectionBack() }
+        }
+        monitor.start(queue: DispatchQueue(label: "fit2216.macros.network"))
+    }
+
+    deinit { monitor.cancel() }
+
+    private func connectionBack() async {
+        guard let retry = pendingRetry, case .failed = status else { return }
+        pendingRetry = nil
+        await retry()
+    }
 
     var totals: Totals { Food.dayTotals(cards) }
 
@@ -55,6 +75,7 @@ final class MacrosModel {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard loaded, !value.isEmpty, status != .parsing else { return }
         status = .parsing
+        pendingRetry = nil
         let items: [Meal]
         if let known = FoodMemory.lookup(uid: uid, text: value) {
             items = known // worked out before: no request
@@ -64,6 +85,12 @@ final class MacrosModel {
                 FoodMemory.store(uid: uid, text: value, meals: items)
             } catch {
                 status = .failed(error.localizedDescription)
+                if let failure = error as? AIClient.Failure {
+                    switch failure {
+                    case .offline, .tooSlow: pendingRetry = { [weak self] in await self?.submit(uid: uid, targets: targets, service: service) }
+                    default: break
+                    }
+                }
                 return
             }
         }

@@ -5,6 +5,7 @@ struct SummaryView: View {
     @Environment(AppModel.self) private var model
     @State private var logging: LoggingTarget?
     @State private var reviewing: LoggingTarget?
+    @State private var tidying = false
 
     var body: some View {
         let now = model.now
@@ -27,6 +28,10 @@ struct SummaryView: View {
                 } else {
                     ContentUnavailableView("No plan yet", systemImage: "calendar", description: Text("Add a plan in the Workout tab."))
                 }
+                if model.canLog {
+                    let drift = ExerciseNames.drift(plan: model.plan, logs: model.logs)
+                    if !drift.isEmpty { DriftCard(count: drift.count) { tidying = true } }
+                }
                 WeekCard(week: week)
                 BodyCard(summary: bodyCard, unit: model.profile.bodyUnit)
                 if let best { BestCard(record: best, unit: model.profile.gymUnit) }
@@ -43,6 +48,7 @@ struct SummaryView: View {
             }
         }
         .fullScreenCover(item: $logging) { LoggingView(day: $0.day) }
+        .sheet(isPresented: $tidying) { NavigationStack { TidyNamesView() } }
         .sheet(item: $reviewing) { target in
             ReviewProgressView(day: target.day) {
                 reviewing = nil
@@ -130,6 +136,28 @@ private struct UpNextCard: View {
             }
         }
         .card()
+    }
+}
+
+/// Shown when one exercise is saved under several names (the drift check), so trends do not split silently.
+private struct DriftCard: View {
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(count) exercise\(count == 1 ? "" : "s") saved under more than one name").font(.subheadline.weight(.semibold))
+                    Text("Tap to tidy so trends and bests stay together.").font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
     }
 }
 
