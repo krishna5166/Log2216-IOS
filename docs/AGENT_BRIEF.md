@@ -55,6 +55,9 @@ Reference implementation of every rule: web code in `app/src/lib/*.ts` of the we
 13. AGENT_BRIEF state block must stay current as the app evolves.
 14. Real-phone testing pass, then TestFlight to Sri, then unlisted listing. Bugs found in testing get fixed in a batch, not one at a time.
 
+## Insights trimmed for now
+The Insights tab temporarily hides "Next week", the weekly recap ("This week so far"), "Strength by muscle" and "Workouts per week" (too long on a phone). The core logic (`Suggestions`, `Recap`, `MuscleInsights`, `Insights.weeklyStats`) is unchanged and tested; bring the cards back from git history (commit before this change) when the page is redesigned.
+
 ## Polish sprint (feature, behavioral, platform gaps vs PWA)
 - **Feature gaps**: none open. Rings are the custom SwiftUI ones (sets today, workouts this week); real HealthKit rings were not wired because that needs the HealthKit capability and a privacy prompt in Xcode first. Copy-workout works from Past sessions (Repeat today, Share workout) and the Workout tab (Import).
 - **Behavioral gaps**: macros auto-retry on reconnect (covered in open items above); any other PWA behavior the iOS port hasn't matched yet — compare against the web app's daily-use edge-case fixes.

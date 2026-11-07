@@ -12,11 +12,8 @@ struct InsightsView: View {
         let stats = MuscleInsights.stats(plan: model.plan, logs: model.logs, now)
         let flags = MuscleInsights.balance(stats: stats, plan: model.plan)
         let weights = model.weights.sorted { $0.date < $1.date }
-        let weeks = Insights.weeklyStats(model.logs, plan: model.plan, now, weeks: Insights.chartWeeks(model.logs, now, max: 8))
         let records = Insights.recentPRs(Insights.liftHistory(model.logs), now)
         let baseline = Insights.baselineWeight(heightCm: model.profile.heightCm, targetWeightKg: model.profile.targetWeightKg)
-        let progression = Suggestions.progression(plan: model.plan, logs: model.logs, unit: model.profile.gymUnit, now)
-        let recap = Recap.week(plan: model.plan, logs: model.logs, weights: model.weights, percents: macroPercents, now)
         let calendar = Recap.calendarWeeks(plan: model.plan, logs: model.logs, percents: macroPercents, now)
         let today = Dates.localDate(now)
         let macroDays: [(date: String, pct: Int?)] = (0..<7).map { i in let d = Dates.addDays(today, i - 6); return (date: d, pct: macroPercents[d]) }
@@ -40,31 +37,6 @@ struct InsightsView: View {
                 NavigationLink("All weigh-ins") { WeightHistoryView() }
             }
 
-            SectionCard("Next week") {
-                if progression.raise.isEmpty && progression.stalled.isEmpty {
-                    Text("Nothing to change yet. Keep logging.").font(.footnote).foregroundStyle(.secondary)
-                }
-                ForEach(progression.raise, id: \.name) { r in
-                    Label("\(r.name): \(Units.tidy(r.from)) → \(Units.tidy(r.to)) \(model.profile.gymUnit.rawValue)", systemImage: "arrow.up.circle").font(.subheadline).foregroundStyle(Theme.lime)
-                }
-                ForEach(progression.stalled, id: \.name) { st in
-                    Label("\(st.name) has stalled; try \(Units.tidy(st.deloadTo)) \(model.profile.gymUnit.rawValue) for a week", systemImage: "pause.circle").font(.subheadline).foregroundStyle(.orange)
-                }
-                Text(progression.deload ? "Two or more lifts have stalled, which usually means tiredness rather than one bad lift. A lighter week (about 90% of the working weight) is worth trying. Suggestions only; nothing in your plan changes." : "Suggestions only; nothing in your plan changes.")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }
-
-            SectionCard(recap.label) {
-                LabeledContent("Workouts", value: "\(recap.done) of \(recap.planned)")
-                ForEach(recap.records, id: \.name) { r in
-                    Label("\(r.name) \(Format.weight(kg: r.weightKg, unit: model.profile.gymUnit)) × \(Int(r.reps))", systemImage: "trophy").font(.subheadline)
-                }
-                if let change = recap.changeKg {
-                    LabeledContent("Weight", value: "\(change >= 0 ? "+" : "")\(Units.tidy(Units.fromKg(change, to: model.profile.bodyUnit))) \(model.profile.bodyUnit.rawValue)")
-                }
-                if let avg = recap.macroAvg { LabeledContent("Food targets", value: "\(avg)% on average (\(recap.macroDays) \(recap.macroDays == 1 ? "day" : "days"))") }
-            }
-
             SectionCard("Consistency") { ConsistencyGrid(weeks: calendar) }
 
             if !flags.isEmpty {
@@ -73,20 +45,6 @@ struct InsightsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(flag.title).font(.headline)
                             Text(flag.detail).font(.footnote).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            SectionCard("Strength by muscle") {
-                if stats.isEmpty {
-                    Text("Log a few workouts and your muscles show up here.").foregroundStyle(.secondary)
-                } else {
-                    ForEach(stats, id: \.muscle) { stat in
-                        NavigationLink {
-                            MuscleDetailView(stat: stat, unit: model.profile.gymUnit)
-                        } label: {
-                            MuscleRow(stat: stat)
                         }
                     }
                 }
@@ -101,12 +59,6 @@ struct InsightsView: View {
                         }
                     }
                 }
-            }
-
-            SectionCard("Workouts per week") {
-                WeeklyWorkoutsChart(weeks: weeks)
-                let counts = Insights.weekCounts(model.plan, model.logs, now)
-                LabeledContent("This week", value: "\(counts.done) of \(counts.planned)")
             }
 
             if macroDays.contains(where: { $0.pct != nil }) {
