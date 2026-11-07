@@ -31,7 +31,9 @@ struct AIClient {
 
         var request = URLRequest(url: base.appendingPathComponent("api/ai"))
         request.httpMethod = "POST"
-        request.timeoutInterval = 25
+        // The server may try several AI providers inside its own 28 s budget and Vercel stops the function at 30 s,
+        // so the app waits up to 30 s: giving up earlier would discard an answer that was about to arrive.
+        request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["task": "macros", "data": ["text": text.trimmingCharacters(in: .whitespacesAndNewlines)]])
