@@ -56,3 +56,22 @@ final class StrengthTests: XCTestCase {
         XCTAssertEqual(Strength.lift("Squat", plan: [], logs: [l], now, weeks: 1, cal).sessions, 0)
     }
 }
+
+final class StrengthSummaryTests: XCTestCase {
+    private func series(_ scores: [Double?], enough: Bool = true, filter: StrengthFilter = .overall) -> StrengthSeries {
+        StrengthSeries(filter: filter,
+                       weeks: scores.enumerated().map { StrengthWeek(start: "2026-10-\(10 + $0.offset)", volume: 0, score: $0.element, volumeIndex: $0.element, e1rmIndex: $0.element) },
+                       sessions: 5, enough: enough)
+    }
+
+    func testDirectionAndSizeAreSpoken() {
+        XCTAssertEqual(series([100, nil, 112]).summary, "Overall: strength is up 12 percent since the first week shown.")
+        XCTAssertEqual(series([100, 92], filter: .lower).summary, "Lower body: strength is down 8 percent since the first week shown.")
+        XCTAssertEqual(series([100, 100.2]).summary, "Overall: strength is steady since the first week shown.")
+    }
+
+    func testNotEnoughDataSaysSo() {
+        XCTAssertEqual(series([100]).summary, "Overall: not enough sessions yet to show a trend.")
+        XCTAssertEqual(series([100, 110], enough: false).summary, "Overall: not enough sessions yet to show a trend.")
+    }
+}
