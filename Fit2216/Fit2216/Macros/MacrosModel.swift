@@ -12,7 +12,16 @@ final class MacrosModel {
         case failed(String)
     }
 
+    /// An estimate waiting for the person to check it before it becomes a card.
+    struct Review: Identifiable {
+        let id = UUID()
+        let text: String
+        var items: [Meal]
+        var fromMemory: Bool   // true when it came from this phone (an earlier estimate or a correction), false when the AI just worked it out
+    }
+
     var cards: [FoodCard] = []
+    var review: Review?
     var text = ""
     var editing: String?
     var status: Status = .idle
@@ -82,8 +91,10 @@ final class MacrosModel {
         status = .parsing
         pendingRetry = nil
         let items: [Meal]
+        var fromMemory = false
         if let known = FoodMemory.lookup(uid: uid, text: value) {
             items = known // worked out before: no request
+            fromMemory = true
         } else {
             do {
                 items = try await ai.meals(for: value)
@@ -99,15 +110,29 @@ final class MacrosModel {
                 return
             }
         }
+        // Nothing is saved yet: the estimate is shown for the person to check and correct first.
+        review = Review(text: value, items: items, fromMemory: fromMemory)
+        status = .idle
+    }
+
+    /// Saves the (possibly corrected) estimate as a card. A correction is remembered for the same text, so it is not estimated wrongly again.
+    func confirmReview(_ reviewed: [Meal], uid: String, targets: Targets?, service: FirestoreService) {
+        guard let review else { return }
+        let items = Food.cleaned(reviewed)
+        guard !items.isEmpty else { return }
+        FoodMemory.store(uid: uid, text: review.text, meals: items)
         let id = editing ?? String(UUID().uuidString.prefix(8)).lowercased()
-        let card = FoodCard(id: id, text: value, items: items)
+        let card = FoodCard(id: id, text: review.text, items: items)
         if editing != nil { cards = cards.map { $0.id == id ? card : $0 } } else { cards.append(card) }
         editing = nil
         text = stash
         stash = ""
-        status = .idle
+        self.review = nil
         persist(uid: uid, targets: targets, service: service)
     }
+
+    /// Closes the review without saving; the text stays in the box to change or send again.
+    func cancelReview() { review = nil }
 
     func open(_ card: FoodCard) {
         if editing == nil { stash = text } // keep a half-written entry while another one is edited

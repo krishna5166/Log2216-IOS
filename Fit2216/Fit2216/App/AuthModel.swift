@@ -32,6 +32,8 @@ final class AuthModel {
     }
 
     func signOut() {
+        // Food text typed on this phone belongs to this account: forget it when they leave.
+        if case .signedIn(let uid, _) = state { FoodMemory.clear(uid: uid) }
         try? Auth.auth().signOut()
     }
 }

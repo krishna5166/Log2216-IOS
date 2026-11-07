@@ -10,6 +10,12 @@ public struct TodaySession: Equatable, Sendable {
     public var isToday: Bool          // false when today has no entry and this is the next planned day
 }
 
+/// The line that answers "what should I do now?" for the Summary hero card.
+public struct Guidance: Equatable, Sendable {
+    public var headline: String
+    public var detail: String
+}
+
 /// What the Summary screen shows: today's session card and the workout streak.
 public enum Summary {
     /// Today's day if the plan has one, else the day `Plan.pick` offers (a catch-up or the next planned day).
@@ -133,5 +139,24 @@ extension Summary {
     /// The newest personal record in the last two weeks, if any.
     public static func recentBest(logs: [WorkoutLog], _ now: Date, _ cal: Calendar = .current) -> PersonalRecord? {
         Insights.recentPRs(Insights.liftHistory(logs), now, days: 14, limit: 1, cal).first
+    }
+
+    /// What to do now, from today's state: start, continue, review, rest, or what comes next.
+    public static func guidance(_ s: TodaySession, nextName: String? = nil) -> Guidance {
+        let sets = s.plannedSets, done = s.loggedSets, left = max(0, sets - done)
+        func sets_(_ n: Int) -> String { n == 1 ? "1 set" : "\(n) sets" }
+        switch s.state {
+        case .rest:
+            return Guidance(headline: "Rest day", detail: nextName.map { "Recovery is part of the plan. Next: \($0)." } ?? "Recovery is part of the plan.")
+        case .skipped:
+            return Guidance(headline: "Skipped today", detail: "No problem. Pick it up on the next planned day.")
+        case .finished:
+            return Guidance(headline: "Done for today", detail: nextName.map { "\(sets_(done)) logged. Next: \($0)." } ?? "\(sets_(done)) logged.")
+        case .inProgress:
+            return Guidance(headline: "Keep going", detail: "\(sets_(left)) left in \(s.day.name).")
+        case .notStarted:
+            if s.isToday { return Guidance(headline: "Ready when you are", detail: "\(sets_(sets)) across \(s.day.exercises.count) exercises.") }
+            return Guidance(headline: "Next up", detail: "\(s.day.name), \(sets_(sets)).")
+        }
     }
 }

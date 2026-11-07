@@ -66,17 +66,27 @@ public enum Csv {
         return out
     }
 
+    /// Undoes the formula guard `cell` adds: a leading apostrophe before = + - @ tab or return was put there by the export.
+    static func unescape(_ value: String) -> String {
+        guard value.hasPrefix("'"), let second = value.unicodeScalars.dropFirst().first, "=+-@\t\r".unicodeScalars.contains(second) else { return value }
+        return String(value.dropFirst())
+    }
+
+    static let maxRows = 50_000
+    static let maxNameLength = 100
+
     /// Reads a file made by `export`. Throws on anything it cannot trust, so nothing half-valid is saved.
     public static func parse(_ text: String) throws -> CsvImport {
         let rows = try records(text)
         guard let first = rows.first, first == header else { throw CsvError(message: "Not a Fit2216 CSV") }
+        guard rows.count <= maxRows else { throw CsvError(message: "The file has more than \(maxRows) rows") }
         var logs: [WorkoutLog] = [], logKeys: [String] = []
         var weights: [String: WeightEntry] = [:], weightOrder: [String] = []
         for (n, r) in rows.dropFirst().enumerated() {
             func f(_ i: Int) -> String { i < r.count ? r[i] : "" }
             func bad(_ why: String) -> CsvError { CsvError(message: "Row \(n + 2): \(why)") }
-            let kind = f(0), date = f(1), dayIndex = f(2), day = f(3), exercise = f(4), weight = f(6), reps = f(7), unit = f(8), finished = f(9), skipped = f(10)
-            guard Dates.parse(date, utc) != nil else { throw bad("bad date") }
+            let kind = f(0), date = f(1), dayIndex = f(2), day = unescape(f(3)), exercise = unescape(f(4)), weight = f(6), reps = f(7), unit = f(8), finished = f(9), skipped = f(10)
+            guard let when = Dates.parse(date, utc), (1990...2100).contains(utc.component(.year, from: when)) else { throw bad("bad date") }
             if kind == "weight" {
                 guard let kg = Double(weight), kg > 0, kg < 1000 else { throw bad("bad weight") }
                 if weights[date] == nil { weightOrder.append(date) }
@@ -85,6 +95,14 @@ public enum Csv {
             }
             guard kind == "set" || kind == "workout" else { throw bad("unknown kind") }
             guard let u = WeightUnit(rawValue: unit) else { throw bad("unit must be kg or lb") }
+            guard day.count <= maxNameLength, exercise.count <= maxNameLength else { throw bad("a name is longer than \(maxNameLength) characters") }
+            // Cells are written as typed, so they must be what the app itself would have written: digits (and one point for weight).
+            if !weight.isEmpty {
+                guard Logging.numeric(weight, decimal: true) == weight, let w = Double(weight), w >= 0, w <= (u == .lb ? 2500 : 1100) else { throw bad("bad weight \"\(weight)\"") }
+            }
+            if !reps.isEmpty {
+                guard Logging.numeric(reps, decimal: false) == reps, Int(reps) != nil else { throw bad("bad reps \"\(reps)\"") }
+            }
             var idx: Int?
             if !dayIndex.isEmpty {
                 guard let v = Int(dayIndex), (0...6).contains(v) else { throw bad("bad day_index") }
