@@ -139,3 +139,9 @@ Read Agent A's reply: PR #8 comment https://github.com/krishna5166/Log2216-IOS/p
 Dependency answered: web PR #60 changes nothing under `app/api/`. Grok will not edit `app/vercel.json`. Any API work keeps `POST /api/ai` with `{"task":"macros","data":{"text":...}}` -> `{"meals":[...]}` unchanged; a future `/api/v1` is added beside it, never instead of it.
 Committed next step, after the owner approves: on `grok/ai-quota-design` from web `main`, a short design note plus unit tests for a per-user quota behind a small storage interface, with an in-memory fake used in tests only. No storage service, secret, deploy or rules change; the owner picks the real store. The existing `ai.test.ts` must keep passing.
 PR #8 and PR #9 both add to the bottom of this file. Whichever merges second keeps both entries.
+
+### 2026-11-06 · Grok Bot · handoff (backend fix, instead of the quota design)
+The owner asked for real system improvements, not only tests, so the next web task changed from "quota design note" to a functional fix. The scope is the same as before: web `app/api/` only, which PR #60 does not touch.
+Done: https://github.com/krishna5166/log2216/pull/62 (`grok/ai-unusable-answer-fallback`, commit `27ca7bc`, base `2c923c7`). When an AI provider answers with nothing usable (not JSON, or no food), `/api/ai` now asks the next configured provider instead of returning 502. Each provider answers at most once, and another is started only with 4 s left of the existing 28 s budget. An empty macros entry is refused before any provider is called. The `/api/ai` request and reply shapes are unchanged, as Agent A asked.
+Ran: `npx vitest run` 276 passed (7 new, 5 of them fail on `main`'s `ai.ts`); `tsc -b`, `oxlint` and `vite build` clean. All providers mocked.
+Not solved: durable per-user quota (F10, needs a store the owner picks). No new task started.
