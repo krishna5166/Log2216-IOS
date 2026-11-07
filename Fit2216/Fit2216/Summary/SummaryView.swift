@@ -15,13 +15,14 @@ struct SummaryView: View {
         let todayLog = session.flatMap { s in model.logs.first { $0.date == Dates.localDate(now) && Plan.matches($0, s.day) } }
         let left = session.map { Summary.remaining(day: $0.day, log: todayLog) } ?? []
         let bodyCard = Summary.body(weights: model.weights, profile: model.profile, now)
-        let best = Summary.recentBest(logs: model.logs, now)
-        let next = session.flatMap { $0.state == .finished ? Plan.nextUp(model.plan, model.logs, now, afterDay: $0.day.day) : nil }
+        let best = Summary.recentBest(logs: model.recordLogs, now)
+        let next = session.flatMap { ($0.state == .finished || $0.state == .rest) ? Plan.nextUp(model.plan, model.logs, now, afterDay: $0.day.day) : nil }
+        let nextName = next.map { "\($0.name) · \(Calendar.current.shortWeekdaySymbols[$0.day])" }
 
         ScrollView {
             VStack(spacing: 14) {
                 if let session {
-                    HeroCard(session: session, streak: streak, week: week)
+                    HeroCard(session: session, guidance: Summary.guidance(session, nextName: nextName), streak: streak, week: week)
                     if session.state != .rest && session.state != .skipped && (!left.isEmpty || next != nil) {
                         UpNextCard(session: session, left: left, next: next)
                     }
@@ -61,6 +62,7 @@ struct SummaryView: View {
 /// The top card, like Fitness's Activity Rings: two rings (sets today, workouts this week) and big coloured numbers.
 private struct HeroCard: View {
     let session: TodaySession
+    let guidance: Guidance
     let streak: Int
     let week: WeekSummary
 
@@ -69,9 +71,11 @@ private struct HeroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.isToday ? "TODAY" : "NEXT UP").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                Text(session.day.name).font(.system(size: 28, weight: .bold, design: .rounded))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.isToday ? "TODAY · \(session.day.name.uppercased())" : "NEXT PLANNED · \(session.day.name.uppercased())")
+                    .font(.caption.weight(.bold)).foregroundStyle(.secondary).lineLimit(1)
+                Text(guidance.headline).font(.system(size: 28, weight: .bold, design: .rounded))
+                Text(guidance.detail).font(.subheadline).foregroundStyle(.secondary)
             }
 
             HStack(spacing: 22) {
@@ -88,12 +92,7 @@ private struct HeroCard: View {
             }
             .accessibilityElement(children: .combine)
 
-            switch session.state {
-            case .rest: Text("Rest day. Recovery is part of the plan.").font(.subheadline)
-            case .skipped: Text("Skipped today.").font(.subheadline)
-            case .finished: Label("Finished", systemImage: "checkmark.circle.fill").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.lime)
-            default: EmptyView()
-            }
+            Text("Outer ring: sets today. Inner ring: workouts this week.").font(.caption).foregroundStyle(.secondary)
 
             if !session.muscles.isEmpty {
                 Text(session.muscles.map(\.label).joined(separator: " · ")).font(.footnote).foregroundStyle(.secondary)

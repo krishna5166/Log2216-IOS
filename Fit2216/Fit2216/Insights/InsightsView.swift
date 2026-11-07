@@ -12,7 +12,7 @@ struct InsightsView: View {
         let stats = MuscleInsights.stats(plan: model.plan, logs: model.logs, now)
         let flags = MuscleInsights.balance(stats: stats, plan: model.plan)
         let weights = model.weights.sorted { $0.date < $1.date }
-        let records = Insights.recentPRs(Insights.liftHistory(model.logs), now)
+        let records = Insights.recentPRs(Insights.liftHistory(model.recordLogs), now)
         let baseline = Insights.baselineWeight(heightCm: model.profile.heightCm, targetWeightKg: model.profile.targetWeightKg)
         let calendar = Recap.calendarWeeks(plan: model.plan, logs: model.logs, percents: macroPercents, now)
         let today = Dates.localDate(now)
