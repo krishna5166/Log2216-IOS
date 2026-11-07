@@ -28,6 +28,12 @@ struct MacrosView: View {
             .padding(.bottom, 16)
         }
         .scrollDismissesKeyboard(.interactively)
+        .sheet(item: $macros.review) { review in
+            EstimateReviewSheet(review: review, replacing: macros.editing != nil, save: { items in
+                guard let uid = model.uid else { return }
+                macros.confirmReview(items, uid: uid, targets: model.targets, service: model.firestore)
+            }, cancel: { macros.cancelReview() })
+        }
         .navigationTitle("Macros")
         .task(id: Dates.localDate(model.now)) {
             macros.track = { write in model.tracked(write) }
