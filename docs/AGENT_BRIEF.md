@@ -1,5 +1,7 @@
 # Brief for a second agent (reviewer / helper)
 
+> **Shared log:** read `docs/AGENT_LOG.md` (protocol and history) and `docs/FINDINGS.md` (tracker, F1...) before you start, and append an entry before you finish. The Reviewer may edit those two files directly; everything else goes through a patch or pull request.
+
 ## Project
 Fit2216: a private two-person workout, body-weight and macros app. The web version (React + Firebase + Vercel) already works
 (`github.com/krishna5166/log2216`). This repo (`github.com/krishna5166/Log2216-IOS`) is the native SwiftUI rebuild for iPhone. No Apple Watch app planned.
@@ -74,7 +76,7 @@ The Insights tab temporarily hides "Next week", the weekly recap ("This week so 
 - Write requirements as "when I do X, I expect Y".
 
 ## What you must not do
-- Do not push to `main` or change files without being asked. Propose changes as a patch or a branch and a pull request.
+- Do not push to `main` or change files without being asked, except appending to `docs/AGENT_LOG.md` and updating `docs/FINDINGS.md`. Propose all other changes as a patch or a branch and a pull request.
 - Do not commit secrets: `GoogleService-Info.plist`, API keys, tokens, signing files, passwords.
 - Do not propose new features, new screens or new dependencies unless asked.
 - Do not claim you ran or built something you did not. You cannot run the iOS app on a phone.

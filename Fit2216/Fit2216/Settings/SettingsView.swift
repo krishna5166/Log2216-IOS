@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("smartNotes") private var smartNotes = false
     @AppStorage("haptics") private var haptics = true
+    @State private var sending = false
     @AppStorage("autoAdvance") private var autoAdvance = true
     let onDone: () -> Void
 
@@ -59,7 +60,10 @@ struct SettingsView: View {
                 Section {
                     Button(busy ? "Preparing…" : "Prepare backup (.json)") { Task { await prepareBackup() } }.disabled(busy)
                     if let backupURL { ShareLink("Share backup", item: backupURL) }
-                    Button("Restore from backup (.json)") { showBackupImporter = true }
+                    Button("Restore from backup (.json)") { showBackupImporter = true }.disabled(sending)
+                    if sending {
+                        HStack(spacing: 8) { ProgressView(); Text("Sending to the cloud. Offline, this finishes when you reconnect.").font(.footnote).foregroundStyle(.secondary) }
+                    }
                 } header: {
                     Text("Backup")
                 } footer: {
@@ -69,11 +73,11 @@ struct SettingsView: View {
                 Section {
                     Button("Prepare spreadsheet (.csv)") { Task { await prepareCSV() } }.disabled(busy)
                     if let csvURL { ShareLink("Share spreadsheet", item: csvURL) }
-                    Button("Import spreadsheet (.csv)") { showCSVImporter = true }
+                    Button("Import spreadsheet (.csv)") { showCSVImporter = true }.disabled(sending)
                 } header: {
                     Text("Spreadsheet")
                 } footer: {
-                    Text("Every set and weigh-in, one per row. You can edit it and bring it back; the same date is replaced and nothing is deleted.")
+                    Text("Every set and weigh-in, one per row, for reading and editing in a spreadsheet. It is not a full backup: swaps and copied workouts are not in it (use Backup for those). Importing replaces the same dates and deletes nothing; a day keeps its swaps.")
                 }
 
                 Section {
@@ -170,16 +174,36 @@ struct SettingsView: View {
     private func restoreBackup() {
         guard let backup = pendingBackup, let uid = model.uid else { return }
         pendingBackup = nil
-        model.firestore.restore(uid: uid, backup: backup)
-        Task { await model.reload() }
-        message = "Backup restored; syncing to the cloud."
+        sending = true
+        model.firestore.restore(uid: uid, backup: backup) { report in finish(report, what: "Backup restore") }
+        Task { await model.reload() } // shows what this phone now holds, including changes still waiting to be sent
     }
 
     private func importCSV() {
         guard let data = pendingCSV, let uid = model.uid else { return }
         pendingCSV = nil
-        model.firestore.importRows(uid: uid, logs: data.logs, weights: data.weights)
+        sending = true
+        // A spreadsheet has no swaps or copied-workout details, so a day that already has them keeps them.
+        let existing = Dictionary(model.logs.map { (Logging.documentID($0), $0) }, uniquingKeysWith: { first, _ in first })
+        let logs = data.logs.map { log -> WorkoutLog in
+            guard let old = existing[Logging.documentID(log)] else { return log }
+            var merged = log
+            if merged.template == nil { merged.template = old.template }
+            if merged.swaps == nil { merged.swaps = old.swaps }
+            return merged
+        }
+        model.firestore.importRows(uid: uid, logs: logs, weights: data.weights) { report in finish(report, what: "Spreadsheet import") }
         Task { await model.reload() }
-        message = "Spreadsheet imported."
+    }
+
+    /// Runs when the cloud has answered for every batch (offline, when the connection returns), so the message is the real result.
+    private func finish(_ report: FirestoreService.WriteReport, what: String) {
+        sending = false
+        if report.failed == 0 {
+            message = "\(what) finished: \(report.succeeded) items saved."
+        } else {
+            message = "\(what): \(report.succeeded) of \(report.attempted) items saved, \(report.failed) failed (\(report.firstError ?? "unknown reason")). Nothing was deleted. It is safe to run it again: the same days are replaced."
+        }
+        Task { await model.reload() }
     }
 }

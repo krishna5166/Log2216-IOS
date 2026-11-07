@@ -11,8 +11,8 @@ final class LoggingSession {
     let history: [WorkoutLog]
     let unit: WeightUnit
     var index: Int
-    /// When the workout screen opened, for the elapsed timer.
-    let startedAt = Date()
+    /// When this workout was started, for the elapsed timer. Remembered on the phone, so reopening the screen does not restart it.
+    let startedAt: Date
     /// Each lift's earlier sessions (workouts before today), computed once: used to spot a new personal best.
     let lifts: [String: [LiftPoint]]
 
@@ -28,6 +28,13 @@ final class LoggingSession {
         self.timer = timer
         self.onSave = onSave
         self.index = Logging.firstOpenIndex(day: day, log: log)
+        let key = "fit2216.start.\(Logging.documentID(log))"
+        if let saved = UserDefaults.standard.object(forKey: key) as? Date, Calendar.current.isDateInToday(saved) {
+            self.startedAt = saved
+        } else {
+            self.startedAt = Date()
+            UserDefaults.standard.set(self.startedAt, forKey: key)
+        }
         self.lifts = Insights.liftHistory(history.filter { $0.date < log.date })
     }
 
@@ -109,6 +116,7 @@ final class LoggingSession {
         guard Logging.canFinish(log) else { timer.stop(); return }
         log = Logging.finished(log)
         onSave(log)
+        UserDefaults.standard.removeObject(forKey: "fit2216.start.\(Logging.documentID(log))")
         timer.stop()
         Haptics.success()
     }

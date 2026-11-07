@@ -73,22 +73,32 @@ final class AppModel {
         weights = loaded.weights
     }
 
+    /// Bumped on every load and every sign-out. A load that finishes after a newer one started (or after sign-out) is thrown away,
+    /// so a slow answer for one account can never land in another account's screens.
+    @ObservationIgnored private var generation = 0
+
     /// Shows what this phone already holds straight away (it works offline and with a weak signal), then refreshes from the server.
     func load(uid: String) async {
+        if self.uid != uid { clearData() } // never show or edit another account's data
+        generation += 1
+        let mine = generation
         self.uid = uid
         let hadData = !plan.isEmpty || !logs.isEmpty
         if !hadData {
             phase = .loading
-            if let cached = try? await service.loadAll(uid: uid, source: .cache), !cached.doc.plan.isEmpty || !cached.logs.isEmpty {
+            if let cached = try? await service.loadAll(uid: uid, source: .cache), mine == generation, !cached.doc.plan.isEmpty || !cached.logs.isEmpty {
                 apply(cached)
                 phase = .stale("Showing what is saved on this phone. Updating…")
             }
         }
         do {
-            apply(try await service.loadAll(uid: uid, source: .default))
+            let fresh = try await service.loadAll(uid: uid, source: .default)
+            guard mine == generation else { return }
+            apply(fresh)
             lastLoaded = Date()
             phase = .ready
         } catch {
+            guard mine == generation else { return }
             phase = (plan.isEmpty && logs.isEmpty) ? .failed(error.localizedDescription) : .stale("Offline: showing what is saved on this phone.")
         }
     }
@@ -162,9 +172,15 @@ final class AppModel {
         if let uid { tracked { done in service.saveLog(uid: uid, log: log, completion: done) } }
     }
 
+    private func clearData() {
+        plan = []; library = []; logs = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil
+        unsent = 0; writeProblem = nil; slowSync = false; slowTimer?.cancel()
+    }
+
     func reset() {
+        generation += 1 // answers still on their way belong to the account that just left
         uid = nil
-        plan = []; library = []; logs = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil; unsent = 0; writeProblem = nil; slowSync = false; slowTimer?.cancel()
+        clearData()
     }
 
     /// Sample data for previews.

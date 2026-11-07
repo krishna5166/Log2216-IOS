@@ -39,7 +39,7 @@ extension FirestoreService {
         for (key, value) in fields where key.hasPrefix("profile.") {
             nested[String(key.dropFirst("profile.".count))] = value ?? FieldValue.delete()
         }
-        guard !nested.isEmpty else { return }
+        guard !nested.isEmpty else { completion?(nil); return } // nothing to write is a finished write, not a stuck one
         user(uid).setData(["profile": nested], merge: true, completion: completion)
     }
 
@@ -52,7 +52,7 @@ extension FirestoreService {
     }
 
     func saveFoodDay(uid: String, date: String, day: FoodDay, completion: ((Error?) -> Void)? = nil) {
-        guard let data = object(day) else { completion?(nil); return }
+        guard let data = object(day) else { completion?(SaveEncodingError()); return }
         user(uid).collection("foodDays").document(date).setData(data, completion: completion)
     }
 
@@ -77,19 +77,80 @@ extension FirestoreService {
         return Backup.export(user: user, logs: logs, weights: weights, exportedAt: ISO8601DateFormatter().string(from: Date()))
     }
 
+    /// What a restore or import achieved, once the cloud has answered for every batch.
+    struct WriteReport {
+        var attempted = 0
+        var failed = 0
+        var firstError: String?
+        var succeeded: Int { attempted - failed }
+    }
+
+    private struct PendingWrite {
+        var ref: DocumentReference
+        var data: [String: Any]
+        var mergeFields: [String]?
+    }
+
+    /// Sends the writes in batches of up to 400 (each batch is all-or-nothing) and calls `done` once every batch has been answered:
+    /// offline that is when the connection returns. Several batches are not one atomic restore, so a failed batch is counted and reported
+    /// and the whole import can be run again safely (the same days are replaced, nothing is deleted).
+    private func send(_ writes: [PendingWrite], done: @escaping (WriteReport) -> Void) {
+        let chunks = stride(from: 0, to: writes.count, by: 400).map { Array(writes[$0..<min($0 + 400, writes.count)]) }
+        guard !chunks.isEmpty else { done(WriteReport()); return }
+        var report = WriteReport(attempted: writes.count)
+        var remaining = chunks.count
+        for chunk in chunks {
+            let batch = db.batch()
+            for w in chunk {
+                if let fields = w.mergeFields { batch.setData(w.data, forDocument: w.ref, mergeFields: fields) } else { batch.setData(w.data, forDocument: w.ref) }
+            }
+            batch.commit { error in
+                DispatchQueue.main.async {
+                    if let error { report.failed += chunk.count; report.firstError = report.firstError ?? error.localizedDescription }
+                    remaining -= 1
+                    if remaining == 0 { done(report) }
+                }
+            }
+        }
+    }
+
+    private func logWrites(_ logs: [WorkoutLog], _ uid: String) -> (writes: [PendingWrite], unreadable: Int) {
+        var writes: [PendingWrite] = [], bad = 0
+        for log in logs {
+            if let data = object(log) { writes.append(PendingWrite(ref: user(uid).collection("logs").document(Logging.documentID(log)), data: data, mergeFields: nil)) } else { bad += 1 }
+        }
+        return (writes, bad)
+    }
+
+    private func weightWrites(_ weights: [WeightEntry], _ uid: String) -> [PendingWrite] {
+        weights.map { PendingWrite(ref: user(uid).collection("weights").document($0.date), data: ["date": $0.date, "kg": $0.kg], mergeFields: nil) }
+    }
+
     /// Puts a validated backup into the account: its plan, profile and library replace yours; its workouts and weigh-ins are added or replace the same dates. Nothing else is deleted.
-    func restore(uid: String, backup: BackupFile) {
+    func restore(uid: String, backup: BackupFile, done: @escaping (WriteReport) -> Void) {
         var fields: [String: Any] = ["plan": objects(backup.plan), "library": backup.library, "profile": backup.profile]
         if let templates = backup.templates { fields["templates"] = templates }
-        user(uid).setData(fields, mergeFields: Array(fields.keys))
-        for log in backup.logs { if let data = object(log) { user(uid).collection("logs").document(Logging.documentID(log)).setData(data) } }
-        for w in backup.weights { saveWeight(uid: uid, entry: w) }
+        let logs = logWrites(backup.logs, uid)
+        var writes = [PendingWrite(ref: user(uid), data: fields, mergeFields: Array(fields.keys))]
+        writes += logs.writes
+        writes += weightWrites(backup.weights, uid)
+        send(writes) { report in
+            var r = report
+            r.attempted += logs.unreadable
+            r.failed += logs.unreadable
+            done(r)
+        }
     }
 
     /// Adds workouts and weigh-ins from a spreadsheet; the same date replaces, nothing else is touched.
-    func importRows(uid: String, logs: [WorkoutLog], weights: [WeightEntry]) {
-        for log in logs { if let data = object(log) { user(uid).collection("logs").document(Logging.documentID(log)).setData(data) } }
-        for w in weights { saveWeight(uid: uid, entry: w) }
+    func importRows(uid: String, logs: [WorkoutLog], weights: [WeightEntry], done: @escaping (WriteReport) -> Void) {
+        let l = logWrites(logs, uid)
+        send(l.writes + weightWrites(weights, uid)) { report in
+            var r = report
+            r.attempted += l.unreadable
+            r.failed += l.unreadable
+            done(r)
+        }
     }
 
     func loadAllLogs(uid: String) async throws -> [WorkoutLog] {
@@ -114,7 +175,7 @@ extension FirestoreService {
     func loadAll(uid: String, source: FirestoreSource) async throws -> Loaded {
         let userSnap = try await user(uid).getDocument(source: source)
         let doc = userSnap.data().flatMap { FirestoreDecoding.decode(UserDoc.self, from: $0) } ?? UserDoc()
-        let logSnap = try await user(uid).collection("logs").order(by: "date", descending: true).limit(to: 200).getDocuments(source: source)
+        let logSnap = try await user(uid).collection("logs").order(by: "date", descending: true).limit(to: 500).getDocuments(source: source)
         let logs = logSnap.documents.compactMap { FirestoreDecoding.decode(WorkoutLog.self, from: $0.data()) }
         let weightSnap = try? await user(uid).collection("weights").order(by: "date", descending: true).limit(to: 400).getDocuments(source: source)
         let weights = weightSnap?.documents.compactMap { FirestoreDecoding.decode(WeightEntry.self, from: $0.data()) } ?? []

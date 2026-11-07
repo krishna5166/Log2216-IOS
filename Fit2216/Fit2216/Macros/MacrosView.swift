@@ -30,6 +30,7 @@ struct MacrosView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Macros")
         .task(id: Dates.localDate(model.now)) {
+            macros.track = { write in model.tracked(write) }
             guard let uid = model.uid else { return }
             await macros.load(uid: uid, date: Dates.localDate(model.now), service: model.firestore)
         }

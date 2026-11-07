@@ -3,6 +3,11 @@ import FirebaseFirestore
 import Fit2216Core
 
 /// Reads the same documents the web app writes: `users/{uid}` and `users/{uid}/logs/*`. The Firestore SDK keeps its own offline copy.
+/// A value that could not be turned into a Firestore document. Reported through the same completion as a rejected write, so the save notice never sticks.
+struct SaveEncodingError: LocalizedError {
+    var errorDescription: String? { "Could not prepare this change for saving." }
+}
+
 struct FirestoreService {
     func loadUserDoc(uid: String) async throws -> UserDoc {
         let snapshot = try await Firestore.firestore().collection("users").document(uid).getDocument()
@@ -31,7 +36,7 @@ struct FirestoreService {
     /// Writes one workout in the shape the web app uses (`users/{uid}/logs/{date_dayIndex}`). The SDK queues the write while offline and sends it later.
     func saveLog(uid: String, log: WorkoutLog, completion: ((Error?) -> Void)? = nil) {
         guard let data = try? JSONEncoder().encode(log),
-              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { completion?(SaveEncodingError()); return }
         Firestore.firestore()
             .collection("users").document(uid).collection("logs").document(Logging.documentID(log))
             .setData(object, completion: completion)

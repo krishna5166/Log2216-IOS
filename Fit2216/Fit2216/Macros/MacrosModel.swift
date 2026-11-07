@@ -23,6 +23,8 @@ final class MacrosModel {
 
     @ObservationIgnored private var stash = ""
     @ObservationIgnored private let ai = AIClient()
+    /// Routes food saves through the app's save tracker (set by the screen), so a refused or waiting save shows the same notice as a workout.
+    @ObservationIgnored var track: (((@escaping (Error?) -> Void) -> Void)) -> Void = { write in write { _ in } }
     @ObservationIgnored private let monitor = NWPathMonitor()
     /// What to run again when the connection comes back after a "no connection" or "too slow" failure.
     @ObservationIgnored private var pendingRetry: (() async -> Void)?
@@ -64,7 +66,9 @@ final class MacrosModel {
         guard loaded else { return }
         // No meals means no day to score: opening the screen must not store a 0% day.
         let pct = cards.isEmpty ? nil : Food.completionPercent(totals, targets: targets)
-        service.saveFoodDay(uid: uid, date: date, day: FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct), completion: nil)
+        let day = FoodDay(cards: cards, draft: text.isEmpty ? nil : text, pct: pct)
+        let date = self.date
+        track { done in service.saveFoodDay(uid: uid, date: date, day: day, completion: done) }
     }
 
     /// Saves the unsent text (when the app goes to the background or the screen closes).

@@ -238,11 +238,11 @@ private struct ExerciseScreen: View {
         return HStack(alignment: .top, spacing: 12) {
             numberCircle(i, logged: logged, isCurrent: true)
             VStack(alignment: .leading, spacing: 16) {
-                bigMetric("Weight (\(session.unit.rawValue))", text: $weight, keyboard: .decimalPad,
+                bigMetric("Weight (\(session.unit.rawValue))", name: "weight", text: $weight, keyboard: .decimalPad,
                           minus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: -step) },
                           plus: { weight = Plan.step(weight, fallback: Double(hint?.weight ?? "") ?? 0, delta: step) })
 
-                bigMetric("Reps", text: $reps, keyboard: .numberPad,
+                bigMetric("Reps", name: "reps", text: $reps, keyboard: .numberPad,
                           minus: { let v = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: -1); reps = v == "0" ? "" : v },
                           plus: { reps = Plan.step(reps, fallback: Double(hint?.reps ?? "") ?? 0, delta: 1) })
 
@@ -281,11 +281,12 @@ private struct ExerciseScreen: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func bigMetric(_ label: String, text: Binding<String>, keyboard: UIKeyboardType,
+    private func bigMetric(_ label: String, name: String, text: Binding<String>, keyboard: UIKeyboardType,
                            minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 0) {
                 TextField("0", text: text)
+                    .accessibilityLabel(label)
                     .keyboardType(keyboard)
                     .font(.system(size: 52, weight: .medium, design: .rounded))
                     .monospacedDigit()
@@ -293,8 +294,8 @@ private struct ExerciseScreen: View {
                 Text(label).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            roundButton("minus", label: "Decrease", action: minus)
-            roundButton("plus", label: "Increase", action: plus)
+            roundButton("minus", label: "Decrease \(name)", action: minus)
+            roundButton("plus", label: "Increase \(name)", action: plus)
         }
     }
 
