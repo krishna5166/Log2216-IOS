@@ -15,13 +15,13 @@ Source: Reviewer report of 2026-11-07 (source-based, nothing ran on a device). B
 | F9 | Firestore rules: any signed-in user has write access in their own namespace; AI allowlist does not cover the database | High for public launch | needs owner | Web repo. Owner: confirm in Firebase console that sign-up is OFF (`DEPLOY.md` says so) so only invited accounts exist. Builder: after web PR #60, add rules emulator tests for unrelated users and malformed docs, and an allowlist clause. |
 | F10 | AI quotas live in process memory | Low now, high at scale | open | Web repo, after PR #60: durable per-user quota, concurrency limit, provider spend caps, no raw food text in logs. |
 | F11 | Operational evidence missing (crash/sync metrics, budget alerts, backup drill, account deletion, retention) | Launch | partly | Crash reports arrive in Xcode Organizer for TestFlight builds; Diagnostics screen exists. Backup restore drill, budget alerts and deletion flow are open. |
-| F12 | UX direction (Summary answers "what now", one status area, Macros estimate review, Insights one conclusion, import flow, a11y pass) | Product | backlog | See the list below; none are bugs. |
+| F12 | UX direction (Summary answers "what now", one status area, Macros estimate review, Insights one conclusion, import flow, a11y pass) | Product | partly: Summary guidance and the single status banner are in PR (branch `agent-a/summary-now-card`), awaiting owner merge; the rest is backlog | See the list below; none are bugs. |
 | F13 | Stepper VoiceOver says only Increase/Decrease; Dynamic Type capped | Low | partly fixed | Labels now "Decrease weight" etc. and the text fields are labelled. Cap at accessibility 2 stays until adaptive layouts exist; full VoiceOver/large-text pass open. |
 | F14 | Architecture: keep Firebase, harden it; separate screen state, domain operations and persistence | Direction | accepted | Order adopted: account-scoped state (F1 done), one save-status path (partly: workouts, food, profile tracked; imports report), stable IDs and conflict policy (deferred), compact all-time summaries (F7), rules tests (F9), durable quotas (F10). |
 | F15 | Food-estimate cache needs a retention limit and sign-out policy | Low | open | Already per account; add a size cap and clear on sign-out. |
 
 ## UX backlog from the review (Builder's take)
-1. Summary: dominant "what to do now" card, labelled rings, one consolidated status area (offline, sync, data warnings). Do next.
+1. Summary: dominant "what to do now" card, labelled rings, one consolidated status area. In PR `agent-a/summary-now-card` (core `Summary.guidance`, `Status.notice`, 3 tests); awaiting owner merge and a phone check.
 2. Macros: estimate-review step (portion, calories, macros, correction) before saving; mark AI estimates as estimates.
 3. Insights: one weekly conclusion + chart + one suggested action; detail behind drill-downs.
 4. Imports: select, validate, preview changes, confirm, progress, results (results done, preview not).
