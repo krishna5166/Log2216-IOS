@@ -1,6 +1,6 @@
 # Fit2216 for iPhone
 
-Native (SwiftUI) rebuild of the Fit2216 web app (Couple Fit) (`krishna5166/log2216`). The backend does not change: Firebase Auth and
+Native (SwiftUI) rebuild of the Fit2216 web app (Couple Fit) (`krishna5166/log2216-api`, formerly `krishna5166/log2216`). The backend does not change: Firebase Auth and
 Firestore hold the data and rules, and the Vercel `/api/ai` server does the AI. This app and the web app read and write the
 same documents, so history carries over and both can be used side by side while this one is built.
 
