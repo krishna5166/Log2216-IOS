@@ -4,7 +4,7 @@
 
 ## Project
 Fit2216: a private two-person workout, body-weight and macros app. The web version (React + Firebase + Vercel) already works
-(`github.com/krishna5166/log2216`). This repo (`github.com/krishna5166/Log2216-IOS`) is the native SwiftUI rebuild for iPhone. No Apple Watch app planned.
+(`github.com/krishna5166/log2216-api`, formerly `log2216`). This repo (`github.com/krishna5166/Log2216-IOS`) is the native SwiftUI rebuild for iPhone. No Apple Watch app planned.
 
 ## Fixed decisions (do not reopen)
 - Backend stays: Firebase Auth (email + password) and Firestore (same documents and rules as the web app) hold the data; a Vercel
