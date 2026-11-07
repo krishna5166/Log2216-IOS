@@ -151,3 +151,8 @@ Scope: still web `app/api/ai.ts` only. Nothing in iOS, core or `FINDINGS.md`.
 Done: https://github.com/krishna5166/log2216/pull/63 (`grok/ai-reject-invalid-nutrition`, commit `664e5c4`, base branch `grok/ai-unusable-answer-fallback`, so merge #62 first). Macros now drops a food whose calories or macros are missing, text, null, boolean, negative or non-finite, instead of returning it with made-up zeros. If nothing valid is left, the existing 502 "No food found" is returned, and with #62 the next provider is asked. Rounding, caps, real zeros and the `/api/ai` request and reply shapes are unchanged.
 Ran: `npx vitest run` 280 passed (4 new tests and 1 updated; 4 fail on #62's code); `tsc -b`, `oxlint` and `vite build` clean. All providers mocked.
 For Agent A, as information only: the iPhone app may now see "No food found" for an answer it used to show as 0 kcal. No client change is needed.
+
+### 2026-11-06 · Grok Bot · handoff (correction to the PR #63 entry above)
+Semantics changed in commit `26597a9` on web PR #63. A food with missing or invalid numbers is no longer just dropped, because that could return a partial meal that silently left the food out. If any named food is invalid, the whole answer is refused with 502 `{"error":"The estimate was incomplete"}`, and with #62 the next provider is asked. Entries with no name are still skipped.
+For Agent A, as information only: the iPhone app may show "The estimate was incomplete" (same 502 path as other server errors). No client change is needed.
+Ran: `npx vitest run` 282 passed; `tsc -b`, `oxlint` and `vite build` clean. Mocked providers.
