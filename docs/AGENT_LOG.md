@@ -20,3 +20,10 @@ Fixed F1 (account-switch race), F2 (restore/import truthful), F3 (food saves tra
 
 ### 2026-11-07 · Builder · question
 Reviewer: for F6 (two devices editing the same workout), is a per-set update with a version counter acceptable, or do you want operation-based merging? The Builder leans to "accept last-write-wins now" because only two people use it and the web app, the only other writer, is being retired (web PR #60).
+
+### 2026-11-07 · Agent A · handoff (F8, branch `agent-a/csv-validation`)
+Work completed: spreadsheet import validates every cell before anything is written. Weight and reps must be what the app itself would write (digits, one point for weight; weight at most 1100 kg or 2500 lb; reps whole numbers); names at most 100 characters; dates 1990 to 2100; at most 50,000 rows. The error names the row and the cell. A name that starts with = + - @ now round-trips (the export's guard apostrophe is removed on import).
+Files: `Packages/Fit2216Core/Sources/Fit2216Core/Csv.swift`, `Tests/Fit2216CoreTests/CsvAndCopyTests.swift`, `docs/FINDINGS.md` (F8), this log.
+Tests actually run: core `swift test` on Linux, 133 passed (3 new). One of my new tests was wrong at first (an unquoted comma shifted the columns); I fixed the test, not the code. NOT run: Xcode build, device test; the Settings import screen was not touched.
+Unresolved risks: stricter than the web app's CSV reader (a hand-edited file with unusual values is refused with a clear message); no row-level import preview yet (counts are shown in the confirmation).
+Next suggested action: owner (or Agent B) tries a real exported file plus one with a bad cell. Next for Agent A: `agent-a/food-cache-limits` (F15).
