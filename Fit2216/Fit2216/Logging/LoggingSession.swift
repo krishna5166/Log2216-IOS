@@ -16,6 +16,7 @@ final class LoggingSession {
     /// Each lift's earlier sessions (workouts before today), computed once: used to spot a new personal best.
     let lifts: [String: [LiftPoint]]
 
+    @ObservationIgnored private var strengthCache: (key: String, value: StrengthSeries)?
     @ObservationIgnored private let timer: RestTimer
     @ObservationIgnored private let onSave: (WorkoutLog) -> Void
 
@@ -46,8 +47,14 @@ final class LoggingSession {
 
     /// This lift's overall progress (volume and intensity blended), with today's sets included as you log them.
     func strength() -> StrengthSeries {
+        // Recomputed only when this lift or its sets change, not on every redraw (typing, the timer).
+        let sets = (log.sets[exercise.name] ?? []).map { "\($0.weight)x\($0.reps)" }.joined(separator: ",")
+        let key = "\(shownName)|\(sets)"
+        if let cached = strengthCache, cached.key == key { return cached.value }
         let id = Logging.documentID(log)
-        return Strength.lift(shownName, plan: [day], logs: history.filter { Logging.documentID($0) != id } + [log], Date())
+        let value = Strength.lift(shownName, plan: [day], logs: history.filter { Logging.documentID($0) != id } + [log], Date())
+        strengthCache = (key, value)
+        return value
     }
 
     /// What today's workout adds up to (for the Workout complete screen).

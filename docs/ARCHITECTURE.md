@@ -41,6 +41,11 @@ Rules: `firestore.rules` in the web repo (owner-only wildcard covers new subcoll
 - App: build and run in Xcode; the screens are not covered by automated UI tests.
 - Data safety nets: Settings backup (.json) and spreadsheet (.csv) export/import with validation.
 
+## Operations
+- **Diagnostics** (Settings, Data): app version and build, load state, unsent changes, last save problem, split exercise names, server reachability; shareable as text. Use it first when something seems wrong on a phone.
+- **Crashes:** TestFlight builds report crashes to Xcode Organizer (Window, Organizer, Crashes) with no extra SDK.
+- **Privacy:** `PrivacyInfo.xcprivacy` declares no tracking, email and fitness data used for app functionality only, and the UserDefaults reason code. Update it if a new data type or system API is added.
+
 ## Known limits
 - The elapsed workout timer counts from when the workout screen opened (no stored start time on the log).
 - Live Activity for the rest timer needs a Widget Extension target created in Xcode (not done).

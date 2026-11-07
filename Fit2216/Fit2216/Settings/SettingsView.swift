@@ -78,13 +78,19 @@ struct SettingsView: View {
 
                 Section {
                     NavigationLink("Check exercise names") { TidyNamesView() }
+                    NavigationLink("Diagnostics") { DiagnosticsView() }
                 } header: {
                     Text("Data")
                 } footer: {
                     Text("Finds one exercise saved under different spellings, so its history and trends stay together.")
                 }
 
-                Section { Button("Sign out", role: .destructive) { auth.signOut(); onDone() } }
+                Section {
+                    Button("Sign out", role: .destructive) { auth.signOut(); onDone() }
+                } footer: {
+                    Text("Fit2216 \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))")
+                        .frame(maxWidth: .infinity)
+                }
             }
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done", action: onDone) } }
