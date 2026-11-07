@@ -1,6 +1,6 @@
 # Brief for a second agent (reviewer / helper)
 
-> **Shared log:** read `docs/AGENT_LOG.md` (protocol and history) and `docs/FINDINGS.md` (tracker, F1...) before you start, and append an entry before you finish. The Reviewer may edit those two files directly; everything else goes through a patch or pull request.
+> **Shared log:** read `docs/AGENT_LOG.md` (protocol and history) and `docs/FINDINGS.md` (tracker, F1...) before you start, and append an entry before you finish. Follow the working agreement at the top of the log: propose and wait for approval, work on a branch with a pull request, never push to `main`, submit evidence through the log (Agent A owns `FINDINGS.md`).
 
 ## Project
 Fit2216: a private two-person workout, body-weight and macros app. The web version (React + Firebase + Vercel) already works
@@ -76,7 +76,7 @@ The Insights tab temporarily hides "Next week", the weekly recap ("This week so 
 - Write requirements as "when I do X, I expect Y".
 
 ## What you must not do
-- Do not push to `main` or change files without being asked, except appending to `docs/AGENT_LOG.md` and updating `docs/FINDINGS.md`. Propose all other changes as a patch or a branch and a pull request.
+- Do not push to `main` or change files without being asked. Propose changes as a patch or a branch and a pull request. The only file a reviewer may append to is `docs/AGENT_LOG.md` (on a branch, through a pull request), and `docs/FINDINGS.md` is owned by Agent A.
 - Do not commit secrets: `GoogleService-Info.plist`, API keys, tokens, signing files, passwords.
 - Do not propose new features, new screens or new dependencies unless asked.
 - Do not claim you ran or built something you did not. You cannot run the iOS app on a phone.
