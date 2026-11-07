@@ -64,16 +64,48 @@ struct AIClient {
     }
 }
 
-/// Foods already worked out are answered from the phone, so the same text never costs a second request. Kept per account.
+/// Foods already worked out are answered from the phone, so the same text never costs a second request. Kept per account,
+/// limited to the 200 most recently used estimates, and cleared when that account signs out (food text is personal).
 enum FoodMemory {
-    private static func key(_ uid: String, _ text: String) -> String { "foodMemory.\(uid).\(Food.normalize(text))" }
+    static let limit = 200
+    static let maxTextLength = 500
+
+    private static var defaults: UserDefaults { .standard }
+    private static func prefix(_ uid: String) -> String { "foodMemory.\(uid)." }
+    private static func key(_ uid: String, _ text: String) -> String { prefix(uid) + Food.normalize(text) }
+    private static func indexKey(_ uid: String) -> String { "foodMemoryIndex.\(uid)" }
+
+    /// The keys in use, oldest first. Entries saved before the index existed are adopted once, so they too can be limited and cleared.
+    private static func order(_ uid: String) -> [String] {
+        if let saved = defaults.stringArray(forKey: indexKey(uid)) { return saved }
+        let legacy = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix(uid)) }.sorted()
+        defaults.set(legacy, forKey: indexKey(uid))
+        return legacy
+    }
+
+    private static func touch(_ uid: String, _ k: String) {
+        let result = Lru.touch(order(uid), key: k, limit: limit)
+        result.evicted.forEach { defaults.removeObject(forKey: $0) }
+        defaults.set(result.order, forKey: indexKey(uid))
+    }
 
     static func lookup(uid: String, text: String) -> [Meal]? {
-        guard let data = UserDefaults.standard.data(forKey: key(uid, text)) else { return nil }
-        return try? JSONDecoder().decode([Meal].self, from: data)
+        let k = key(uid, text)
+        guard let data = defaults.data(forKey: k), let meals = try? JSONDecoder().decode([Meal].self, from: data) else { return nil }
+        touch(uid, k) // used just now, so it is the last to go
+        return meals
     }
 
     static func store(uid: String, text: String, meals: [Meal]) {
-        if let data = try? JSONEncoder().encode(meals) { UserDefaults.standard.set(data, forKey: key(uid, text)) }
+        guard Food.normalize(text).count <= maxTextLength, let data = try? JSONEncoder().encode(meals) else { return }
+        let k = key(uid, text)
+        defaults.set(data, forKey: k)
+        touch(uid, k)
+    }
+
+    /// Removes everything remembered for this account (called on sign-out).
+    static func clear(uid: String) {
+        order(uid).forEach { defaults.removeObject(forKey: $0) }
+        defaults.removeObject(forKey: indexKey(uid))
     }
 }

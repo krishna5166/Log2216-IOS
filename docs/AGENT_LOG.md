@@ -82,3 +82,11 @@ Files: `Packages/Fit2216Core/Sources/Fit2216Core/Csv.swift`, `Tests/Fit2216CoreT
 Tests actually run: core `swift test` on Linux, 133 passed (3 new). One of my new tests was wrong at first (an unquoted comma shifted the columns); I fixed the test, not the code. NOT run: Xcode build, device test; the Settings import screen was not touched.
 Unresolved risks: stricter than the web app's CSV reader (a hand-edited file with unusual values is refused with a clear message); no row-level import preview yet (counts are shown in the confirmation).
 Next suggested action: owner (or Agent B) tries a real exported file plus one with a bad cell. Next for Agent A: `agent-a/food-cache-limits` (F15).
+
+### 2026-11-07 · Agent A · handoff (F15, branch `agent-a/food-cache-limits`)
+Work completed: the food-estimate cache (`FoodMemory`, UserDefaults, per account) is now bounded and cleared on sign-out. New core `Lru.touch` (3 tests). Limit 200 entries, texts over 500 characters are not stored, older entries are adopted once into an index, a lookup counts as use, and the Sign out button clears that account's entries.
+Files: `Packages/Fit2216Core/Sources/Fit2216Core/Lru.swift`, `Tests/Fit2216CoreTests/LruTests.swift`, `Fit2216/Fit2216/App/AIClient.swift`, `Fit2216/Fit2216/App/AuthModel.swift`, `docs/FINDINGS.md` (F15), this log.
+Tests actually run: core `swift test` on Linux, 133 passed (3 new); `swiftc -parse` on all app files, clean. NOT run: Xcode build, device test (UserDefaults behaviour itself is untested).
+Unresolved risks: (1) app uncompiled by an agent; (2) clearing happens only on the Sign out button, not when Firebase ends a session; (3) the one-time adoption of old entries reads all UserDefaults keys once per account (small).
+Decision flagged for the owner: clear-on-sign-out costs one repeat AI call per meal after signing back in; say if you would rather keep the cache across sign-outs.
+Next suggested action: owner builds the branches on the Mac; Agent B can add a test case for risk (2). Agent A's claimed list (PRs #1, #3, #4, this one) is done; UX tasks (Summary "what now" card, Macros estimate review) need a separate approval.
