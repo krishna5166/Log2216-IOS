@@ -54,7 +54,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Macros")
                 } footer: {
-                    Text("When on, the food text you type is sent through your own server to Google to estimate calories. Off by default.")
+                    Text(AIConsentText.summary + " Off by default.")
                 }
 
                 Section {

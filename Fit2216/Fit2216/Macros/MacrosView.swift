@@ -5,6 +5,7 @@ struct MacrosView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("smartNotes") private var smartNotes = false
+    @State private var askConsent = false
     @State private var macros = MacrosModel()
 
     var body: some View {
@@ -203,8 +204,14 @@ struct MacrosView: View {
 
     private var consent: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Calculating uses AI. Your food text is sent through your own server to Google.").font(.footnote).foregroundStyle(.secondary)
-            Button("Turn on AI calculation") { smartNotes = true }.font(.footnote.bold())
+            Text(AIConsentText.summary).font(.footnote).foregroundStyle(.secondary)
+            Button("Turn on AI calculation") { askConsent = true }.font(.footnote.bold())
+        }
+        .alert("Send meal text to an AI service?", isPresented: $askConsent) {
+            Button("Allow") { smartNotes = true }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text(AIConsentText.summary + " You can turn this off in Settings.")
         }
     }
 }
