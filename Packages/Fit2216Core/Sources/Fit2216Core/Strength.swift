@@ -128,3 +128,16 @@ public enum Strength {
         return series(data, lifts: [name], filter: .overall)
     }
 }
+
+extension StrengthSeries {
+    /// One plain sentence for VoiceOver (and anywhere a chart has no text): which way strength is heading and by how much.
+    public var summary: String {
+        let scores = weeks.compactMap(\.score)
+        guard enough, scores.count >= 2, let first = scores.first, let last = scores.last, first > 0 else {
+            return "\(filter.label): not enough sessions yet to show a trend."
+        }
+        let change = Int(((last / first - 1) * 100).rounded())
+        if change == 0 { return "\(filter.label): strength is steady since the first week shown." }
+        return "\(filter.label): strength is \(change > 0 ? "up" : "down") \(abs(change)) percent since the first week shown."
+    }
+}

@@ -278,7 +278,8 @@ private struct ExerciseScreen: View {
                 Text("Log this lift over a few weeks to see your trend.").font(.footnote).foregroundStyle(.secondary)
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(session.shownName) trend. \(session.strength().summary)")
     }
 
     private func bigMetric(_ label: String, name: String, text: Binding<String>, keyboard: UIKeyboardType,
@@ -485,6 +486,7 @@ struct RestBar: View {
                         .font(.system(size: 38, weight: .medium, design: .rounded).monospacedDigit())
                         .foregroundStyle(.yellow)
                         .padding(.leading, 8)
+                        .accessibilityLabel(left > 0 ? "Rest timer, \(Int(left.rounded(.up))) seconds left" : "Rest is over, go")
                     Spacer()
                     if left > 0 {
                         pill("+15") { timer.add(15) }

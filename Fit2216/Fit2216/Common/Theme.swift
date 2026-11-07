@@ -14,14 +14,17 @@ struct BigValue: View {
     var unit: String = ""
     let color: Color
     var size: CGFloat = 34
+    /// Grows with the person's text size, but only up to 1.4x so the big numbers stay inside their cards (they also shrink to fit).
+    @ScaledMetric(relativeTo: .largeTitle) private var scale: CGFloat = 1
 
     var body: some View {
+        let s = size * min(scale, 1.4)
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             Text(value)
-                .font(.system(size: size, weight: .medium, design: .rounded))
+                .font(.system(size: s, weight: .medium, design: .rounded))
                 .monospacedDigit()
             if !unit.isEmpty {
-                Text(unit.uppercased()).font(.system(size: size * 0.42, weight: .bold, design: .rounded))
+                Text(unit.uppercased()).font(.system(size: s * 0.42, weight: .bold, design: .rounded))
             }
         }
         .foregroundStyle(color)
@@ -36,6 +39,7 @@ struct Ring: View {
     let color: Color
     let size: CGFloat
     var line: CGFloat = 18
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -48,7 +52,7 @@ struct Ring: View {
             }
         }
         .frame(width: size, height: size)
-        .animation(.easeOut(duration: 0.6), value: progress)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: progress)
     }
 }
 
