@@ -103,7 +103,12 @@ struct MacrosView: View {
             Spacer(minLength: 0)
         }
         .card()
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(rows.map { key, label, unit, _ in
+            let v = Int(value(key).rounded())
+            let status = Food.status(key, value: value(key), targets: targets)
+            return "\(label): \(v)" + (status.target.map { " of \($0)" } ?? "") + " \(unit)."
+        }.joined(separator: " "))
     }
 
     private func color(_ s: MacroStatus.State) -> Color {
