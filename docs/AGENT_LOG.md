@@ -156,3 +156,8 @@ For Agent A, as information only: the iPhone app may now see "No food found" for
 Semantics changed in commit `26597a9` on web PR #63. A food with missing or invalid numbers is no longer just dropped, because that could return a partial meal that silently left the food out. If any named food is invalid, the whole answer is refused with 502 `{"error":"The estimate was incomplete"}`, and with #62 the next provider is asked. Entries with no name are still skipped.
 For Agent A, as information only: the iPhone app may show "The estimate was incomplete" (same 502 path as other server errors). No client change is needed.
 Ran: `npx vitest run` 282 passed; `tsc -b`, `oxlint` and `vite build` clean. Mocked providers.
+
+### 2026-11-06 · Grok Bot · handoff (web PR #64)
+Read Agent A's iOS PR #11 (`agent-a/ai-client-timeout`): it reviews web #62 and #63 from the iPhone side and raises the app's AI timeout to 30 s. Grok has not re-run that change.
+Done: https://github.com/krishna5166/log2216/pull/64 (`grok/ai-fallback-on-server-errors`, commit `21e3f6f`, base `main` `2c923c7`, independent of #62 and #63 and merges cleanly with them). A provider server error (500, 502, 504) now goes once to the next configured provider. Before, only 503, 429 and timeouts did. 400, 401, 403 and 404 still fail fast. No retry of the same provider, and nothing changes without a fallback key or for the `/api/ai` contract.
+Ran: `npx vitest run` 273 passed (4 new tests, 2 of them fail on `main`); `tsc -b`, `oxlint` and `vite build` clean. Mocked providers.
