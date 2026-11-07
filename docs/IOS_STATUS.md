@@ -7,6 +7,8 @@ Native SwiftUI app on the same backend as the web app (Firebase Auth + Firestore
 2. `GoogleService-Info.plist` goes in `Fit2216/Fit2216/` and is never committed (`.gitignore`).
 3. Commit `Fit2216.xcodeproj` after adding or changing packages in Xcode.
 
+See also: [ARCHITECTURE.md](ARCHITECTURE.md), [DESIGN.md](DESIGN.md), [RELEASE.md](RELEASE.md).
+
 ## Parity with the web app
 | Area | iPhone |
 |---|---|
@@ -22,7 +24,7 @@ Native SwiftUI app on the same backend as the web app (Firebase Auth + Firestore
 | Macros: AI estimate, entries, edit/remove, targets, completion % | done (no "add again" history chips, by request) |
 | Body and targets (About me), units, haptics | done |
 | Backup (.json) export/restore, spreadsheet (.csv) export/import | done |
-| Dark mode | follows the phone |
+| Dark mode | dark only (design decision, see DESIGN.md) |
 
 ## Deliberately not ported
 - Circle, macro sync, copy a member's workout/plan (dropped in the plan; needs the Circle link).

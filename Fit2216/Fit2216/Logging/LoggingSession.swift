@@ -50,6 +50,9 @@ final class LoggingSession {
         return Strength.lift(shownName, plan: [day], logs: history.filter { Logging.documentID($0) != id } + [log], Date())
     }
 
+    /// What today's workout adds up to (for the Workout complete screen).
+    func result() -> WorkoutResult { WorkoutRecap.result(log: log, lifts: lifts) }
+
     var canFinish: Bool { Logging.canFinish(log) }
 
     func rows() -> [SetLog] { Logging.rows(log, exercise: exercise) }

@@ -1,0 +1,19 @@
+name: Core tests
+
+# Runs the pure-logic package (everything except the SwiftUI app) on every push and pull request.
+# The app target itself needs Xcode and the Firebase config file, so it is built locally.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    name: Fit2216Core (swift test)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        working-directory: Packages/Fit2216Core
+        run: swift test

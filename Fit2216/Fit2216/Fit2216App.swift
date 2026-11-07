@@ -22,6 +22,7 @@ struct Fit2216App: App {
                 .environment(rest)
                 .preferredColorScheme(.dark)
                 .tint(Theme.lime)
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2) // very large text sizes would break the number layouts
         }
     }
 }

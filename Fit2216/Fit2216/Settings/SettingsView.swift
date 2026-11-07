@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("smartNotes") private var smartNotes = false
     @AppStorage("haptics") private var haptics = true
+    @AppStorage("autoAdvance") private var autoAdvance = true
     let onDone: () -> Void
 
     @State private var backupURL: URL?
@@ -44,6 +45,7 @@ struct SettingsView: View {
 
                 Section("While logging") {
                     Toggle("Haptics", isOn: $haptics)
+                    Toggle("Next exercise after the last set", isOn: $autoAdvance)
                 }
 
                 Section {

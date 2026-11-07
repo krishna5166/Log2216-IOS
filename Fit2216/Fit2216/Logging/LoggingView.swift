@@ -86,6 +86,10 @@ private struct ExerciseScreen: View {
     @State private var selected: Int?
     @State private var weight = ""
     @State private var reps = ""
+    @AppStorage("autoAdvance") private var autoAdvance = true
+    @State private var showComplete = false
+    @State private var finalResult: WorkoutResult?
+    @State private var finalElapsed: TimeInterval = 0
 
     private var rows: [SetLog] { session.rows() }
     private var firstOpen: Int? { rows.firstIndex { !Plan.filled($0) } }
@@ -116,7 +120,10 @@ private struct ExerciseScreen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .keyboardDoneButton()
-        .safeAreaInset(edge: .bottom) { BottomBar(session: session, showList: $showList, close: { dismiss() }) }
+        .safeAreaInset(edge: .bottom) { BottomBar(session: session, showList: $showList, finish: finishWorkout) }
+        .fullScreenCover(isPresented: $showComplete) {
+            WorkoutCompleteView(result: finalResult ?? session.result(), elapsed: finalElapsed, unit: session.unit) { dismiss() }
+        }
         .sheet(isPresented: $showList) { ExerciseListSheet(session: session) }
         .sheet(isPresented: $showSwap) { SwapSheet(session: session) }
         .onChange(of: draftKey, initial: true) { loadDrafts() }
@@ -133,7 +140,7 @@ private struct ExerciseScreen: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { showSwap = true } label: { Label("Swap exercise", systemImage: "arrow.triangle.2.circlepath") }
-                    Button { session.finish(); dismiss() } label: { Label("Finish workout", systemImage: "checkmark.circle") }
+                    Button { finishWorkout() } label: { Label("Finish workout", systemImage: "checkmark.circle") }
                         .disabled(!session.canFinish)
                     Button(role: .destructive) { confirmSkip = true } label: { Label("Skip this workout", systemImage: "forward") }
                 } label: { Image(systemName: "ellipsis.circle") }
@@ -358,15 +365,33 @@ private struct ExerciseScreen: View {
 
     private func logSet(_ i: Int) {
         guard canLog else { return }
+        let wasLogged = Plan.filled(rows[i])
+        let here = session.index
         session.set(i, weight: Logging.numeric(weight, decimal: true), reps: Logging.numeric(reps, decimal: false))
         selected = nil
+        // Last set of this exercise just logged: move on after a beat (not when editing a set that was already logged).
+        if autoAdvance, !wasLogged, session.loggedCount >= session.exercise.sets, !session.isLast {
+            Task {
+                try? await Task.sleep(for: .milliseconds(800))
+                if session.index == here { session.index += 1 }
+            }
+        }
+    }
+
+    /// Saves the workout as finished and shows the summary; Done there closes the workout.
+    private func finishWorkout() {
+        guard session.canFinish else { return }
+        finalElapsed = Date().timeIntervalSince(session.startedAt)
+        session.finish()
+        finalResult = session.result()
+        showComplete = true
     }
 }
 
 private struct BottomBar: View {
     let session: LoggingSession
     @Binding var showList: Bool
-    let close: () -> Void
+    let finish: () -> Void
 
     var body: some View {
         VStack(spacing: 10) {
@@ -395,7 +420,7 @@ private struct BottomBar: View {
                 Spacer()
 
                 if session.isLast {
-                    Button { session.finish(); close() } label: {
+                    Button { finish() } label: {
                         Text("Finish").font(.headline).frame(width: 110, height: 52)
                             .foregroundStyle(.black).background(Theme.lime, in: Capsule())
                     }
