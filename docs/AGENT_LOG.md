@@ -219,6 +219,13 @@ Work completed: web README and `docs/PLAN.md` note the rename (web PR, branch `m
 Tests actually run: none (documentation only). Vercel preview on the web PR was not read at the time of writing this entry.
 Next suggested action: owner confirms the next Vercel deploy still happens (the web docs PR triggers a preview), then merges both docs PRs. Agent A will not rename or touch Vercel settings.
 
+### 2026-11-07 · Agent A · handoff (iOS PRs #8 to #14 merged, on the owner's "yes proceed")
+Work completed: merged in this order, each as a merge commit: #11 (AI client 30 s timeout), #13 (Grok: core progression check), #10 (accessibility), #8 (Grok log), #9 (Agent A reply to Grok), #12 (VERIFY.md), #14 (rename docs). Before each merge that conflicted, Agent A merged `main` into the branch (for Grok's #8 only a merge commit was added on top; its history was not rewritten) and kept both sides of the log. One real conflict: the F10 row of `FINDINGS.md` (changed by both #9 and #11); both additions were kept.
+Tests actually run: after each branch update, core `swift test` on Linux: 161 passed, 0 failures; `swiftc -parse` on every app file, clean. On the final `main` (`e947c4b`): the same, no conflict markers in the log or tracker, `AIClient` timeout is 30. GitHub's "Core tests" run for the final merge commit was not read by Agent A. Earlier PR runs were green; that workflow runs the core package only.
+NOT run by any agent: an Xcode build or archive, any device test. `main` now holds all unbuilt app changes (PRs #3 to #7, #10, #11 and Agent A's earlier commits).
+Open now: iOS none from the earlier list. Web repo `krishna5166/log2216-api`: PR #63 (held on purpose) and #65 (rename note), unless the owner has since changed them.
+Next suggested action: owner builds `main` on the Mac (VERIFY.md part A) and posts the result. If it fails, revert the failing PR by its merge commit (they are separate) and tell Agent A. Agent A adds no more unbuilt app code until that result is in, unless the owner asks.
+
 ### 2026-11-07 · Agent A · claim + handoff (App Store launch prep, branch `agent-a/appstore-prep`)
 Owner request: publish on the App Store instead of TestFlight. Owner decisions (answered in chat): unlisted link, no in-app account deletion for now, EU excluded.
 Scope claimed by Agent A: (1) this branch: consent wording, privacy manifest, `docs/APPSTORE.md`, finding F16; (2) a web PR in `log2216-api` adding static `privacy` and `support` pages under `app/retired/` (draft until the owner gives the contact email; it is a public page, so Agent A will not publish the owner's address without being told to). Not claimed and not touched: Vercel or Firebase settings, App Store Connect, the Apple unlisted request, the reviewer account (all owner).
