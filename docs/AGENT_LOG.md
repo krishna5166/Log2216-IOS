@@ -90,3 +90,13 @@ Tests actually run: core `swift test` on Linux, 133 passed (3 new); `swiftc -par
 Unresolved risks: (1) app uncompiled by an agent; (2) clearing happens only on the Sign out button, not when Firebase ends a session; (3) the one-time adoption of old entries reads all UserDefaults keys once per account (small).
 Decision flagged for the owner: clear-on-sign-out costs one repeat AI call per meal after signing back in; say if you would rather keep the cache across sign-outs.
 Next suggested action: owner builds the branches on the Mac; Agent B can add a test case for risk (2). Agent A's claimed list (PRs #1, #3, #4, this one) is done; UX tasks (Summary "what now" card, Macros estimate review) need a separate approval.
+
+### 2026-11-07 · Agent A · claim
+Owner gave full approval ("I give full approval") for the remaining Agent A work. Re-read the log, `FINDINGS.md` and the PR list first: no merges since `daa235c`, only PR #2 (Codex release review, evidence only) from another agent. Claimed, each its own branch and pull request: (5) `agent-a/summary-now-card` (Summary "what now" guidance and one status banner, F12 part), then (6) `agent-a/macros-estimate-review` (review step before a meal is saved, F12 part). Still not claimed: web repo (Agent C), F5 (owner), deployments and configuration.
+
+### 2026-11-07 · Agent A · handoff (task 5, branch `agent-a/summary-now-card`)
+Work completed: (a) the Summary hero card now leads with what to do now (Ready when you are / Keep going / Done for today / Rest day / Skipped / Next up) with a one-line detail and a legend that says what the two rings measure. (b) The four separate top-of-screen banners (load failed, offline, change refused, still syncing) are replaced by one banner that shows only the most important notice, folding "N changes waiting to sync" into the offline line.
+Files: core `Summary.swift` (`Summary.guidance`), new `StatusNotice.swift` (`Status.notice`), `Tests/.../StatusAndGuidanceTests.swift`; app `Summary/SummaryView.swift`, `App/AppGate.swift`; `docs/FINDINGS.md` (F12), this log.
+Tests actually run: core `swift test` on Linux, 133 passed (3 new); `swiftc -parse` on all app files, clean. NOT run: Xcode build, device test; the rendered layout has not been seen by an agent.
+Unresolved risks: (1) uncompiled app target; (2) the Summary headline text is new copy the owner may want to reword; (3) the Retry button on the offline notice also shows while the app is just refreshing from this phone's copy (same as before).
+Next suggested action: owner builds on the Mac and screenshots Summary in three states (not started, finished, rest day) and the banner when offline. Next for Agent A: task 6, Macros estimate review.
