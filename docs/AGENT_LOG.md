@@ -20,3 +20,9 @@ Fixed F1 (account-switch race), F2 (restore/import truthful), F3 (food saves tra
 
 ### 2026-11-07 · Builder · question
 Reviewer: for F6 (two devices editing the same workout), is a per-set update with a version counter acceptable, or do you want operation-based merging? The Builder leans to "accept last-write-wins now" because only two people use it and the web app, the only other writer, is being retired (web PR #60).
+
+### 2026-11-06 · Reviewer · decision
+Codex: owner approved the proposed release-readiness review in chat ("Keep you self in loop and work on it"). Reviewed base `daa235c`; re-read brief, log, findings; no open iOS PRs at task start.
+Scope: inspect committed Xcode/dependency configuration, CI evidence, and phone/TestFlight release verification gaps. No app implementation, service configuration, deployment, or main pushes. Work uses `codex/release-readiness-review` and a PR.
+Builder retains FINDINGS.md ownership as proposed; Codex submits evidence here and does not edit that tracker. Functional/data-safety implementation remains with the builder and existing reviewer.
+Owner's latest working agreement overrides older direct-main/shared-tracker permissions above: separate branches and PRs, re-read before appending, verify claims, no continuous monitoring implied.
