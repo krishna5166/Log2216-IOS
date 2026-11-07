@@ -17,6 +17,9 @@ final class AppModel {
     var plan: [TemplateDay] = []
     var library: [String] = []
     var logs: [WorkoutLog] = []
+    /// Every workout ever logged, read once and then from this phone's own copy (not refetched each launch). Empty until it has loaded.
+    /// Used only to judge records against the whole history; `logs` stays the recent, always-fresh window the screens use.
+    private(set) var archive: [WorkoutLog] = []
     var weights: [WeightEntry] = []
     var profile = Profile()
     var phase: Phase = .idle
@@ -60,6 +63,26 @@ final class AppModel {
 
     func dayChanged() { tick += 1 }
 
+    /// Recent workouts plus the all-time archive (recent copies win): what personal bests and records are judged against.
+    var recordLogs: [WorkoutLog] { LogHistory.merged(recent: logs, archive: archive) }
+
+    /// Reads the whole history in the background. The first time (and every two weeks) it asks the server; otherwise it uses the copy this
+    /// phone already holds, so there is no full download on every launch. Failure is harmless: records then use the recent window.
+    private func loadArchive(uid: String, generation mine: Int) async {
+        let key = "fit2216.archive.\(uid)"
+        let last = UserDefaults.standard.object(forKey: key) as? Date
+        let stale = last.map { Date().timeIntervalSince($0) > 14 * 24 * 3600 } ?? true
+        var all: [WorkoutLog]?
+        if stale, let fresh = try? await service.loadAllLogs(uid: uid, source: .server) {
+            all = fresh
+            UserDefaults.standard.set(Date(), forKey: key)
+        } else if let cached = try? await service.loadAllLogs(uid: uid, source: .cache) {
+            all = cached
+        }
+        guard let all, mine == generation, self.uid == uid else { return }
+        archive = all
+    }
+
     /// True once there is data to work from: logging and food entry wait for this so nothing is overwritten by an empty copy.
     var canLog: Bool {
         switch phase { case .ready, .stale: return true; default: return false }
@@ -97,6 +120,7 @@ final class AppModel {
             apply(fresh)
             lastLoaded = Date()
             phase = .ready
+            Task { await loadArchive(uid: uid, generation: mine) }
         } catch {
             guard mine == generation else { return }
             phase = (plan.isEmpty && logs.isEmpty) ? .failed(error.localizedDescription) : .stale("Offline: showing what is saved on this phone.")
@@ -133,6 +157,7 @@ final class AppModel {
     func deleteLog(_ log: WorkoutLog) {
         let id = Logging.documentID(log)
         logs.removeAll { Logging.documentID($0) == id }
+        archive.removeAll { Logging.documentID($0) == id }
         if let uid { tracked { done in service.deleteLog(uid: uid, log: log, completion: done) } }
     }
 
@@ -173,7 +198,7 @@ final class AppModel {
     }
 
     private func clearData() {
-        plan = []; library = []; logs = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil
+        plan = []; library = []; logs = []; archive = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil
         unsent = 0; writeProblem = nil; slowSync = false; slowTimer?.cancel()
     }
 
