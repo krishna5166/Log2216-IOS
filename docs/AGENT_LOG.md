@@ -75,3 +75,10 @@ Tests actually run: core `swift test` on Linux, 133 passed (3 new, including an 
 Unresolved risks: (1) app target uncompiled by an agent; (2) an edit or delete made on another device to a workout older than the recent window shows up only at the next 14-day refresh; (3) Firestore's local cache is assumed to keep older documents (it is small; eviction would only make the archive smaller, never wrong).
 Next suggested action: owner builds this branch on the Mac and checks that a workout still opens and the bests look right; Agent B can check the three risks above and propose a test for risk (2). Next for Agent A: `agent-a/csv-validation` (F8).
 Note: this entry and the one in PR #1 both append at the bottom of this file, so the second to merge needs a trivial conflict fix; Agent A will resolve it.
+
+### 2026-11-07 · Agent A · handoff (F8, branch `agent-a/csv-validation`)
+Work completed: spreadsheet import validates every cell before anything is written. Weight and reps must be what the app itself would write (digits, one point for weight; weight at most 1100 kg or 2500 lb; reps whole numbers); names at most 100 characters; dates 1990 to 2100; at most 50,000 rows. The error names the row and the cell. A name that starts with = + - @ now round-trips (the export's guard apostrophe is removed on import).
+Files: `Packages/Fit2216Core/Sources/Fit2216Core/Csv.swift`, `Tests/Fit2216CoreTests/CsvAndCopyTests.swift`, `docs/FINDINGS.md` (F8), this log.
+Tests actually run: core `swift test` on Linux, 133 passed (3 new). One of my new tests was wrong at first (an unquoted comma shifted the columns); I fixed the test, not the code. NOT run: Xcode build, device test; the Settings import screen was not touched.
+Unresolved risks: stricter than the web app's CSV reader (a hand-edited file with unusual values is refused with a clear message); no row-level import preview yet (counts are shown in the confirmation).
+Next suggested action: owner (or Agent B) tries a real exported file plus one with a bad cell. Next for Agent A: `agent-a/food-cache-limits` (F15).

@@ -42,6 +42,42 @@ final class CsvAndCopyTests: XCTestCase {
         XCTAssertEqual(Csv.cell("-5"), "-5") // a plain number is left alone
     }
 
+    func testBadWeightAndRepsCellsAreRejectedWithTheCellInTheMessage() throws {
+        let head = Csv.header.joined(separator: ",")
+        func message(_ weight: String, _ reps: String, unit: String = "kg") -> String? {
+            do { _ = try Csv.parse("\(head)\r\nset,2026-10-01,1,Push,Bench,1,\(weight),\(reps),\(unit),,"); return nil } catch { return (error as? CsvError)?.message }
+        }
+        XCTAssertTrue(message("abc", "5")?.contains("bad weight") == true)
+        XCTAssertTrue(message("-5", "5")?.contains("bad weight") == true)
+        XCTAssertTrue(message("1e3", "5")?.contains("bad weight") == true)
+        XCTAssertTrue(message("\"12,5\"", "5")?.contains("bad weight") == true)  // a decimal comma, quoted so it stays one cell
+        XCTAssertTrue(message("5000", "5")?.contains("bad weight") == true)
+        XCTAssertTrue(message("100", "8.5")?.contains("bad reps") == true)
+        XCTAssertTrue(message("100", "x")?.contains("bad reps") == true)
+        XCTAssertTrue(message("100", "-1")?.contains("bad reps") == true)
+        XCTAssertNil(message("100.5", "8"))
+        XCTAssertNil(message("", ""))           // an empty set keeps its place
+        XCTAssertNil(message("", "12"))         // bodyweight
+        XCTAssertNil(message("2000", "5", unit: "lb"))
+    }
+
+    func testNamesRowsAndDatesAreBounded() throws {
+        let head = Csv.header.joined(separator: ",")
+        let long = String(repeating: "a", count: 101)
+        XCTAssertThrowsError(try Csv.parse("\(head)\r\nset,2026-10-01,1,Push,\(long),1,100,5,kg,,")) { XCTAssertTrue(($0 as! CsvError).message.contains("longer than")) }
+        XCTAssertThrowsError(try Csv.parse("\(head)\r\nweight,1850-01-01,,,,,80,,kg,,")) { XCTAssertTrue(($0 as! CsvError).message.contains("bad date")) }
+        let many = (0..<50_001).map { _ in "weight,2026-10-01,,,,,80,,kg,," }.joined(separator: "\r\n")
+        XCTAssertThrowsError(try Csv.parse("\(head)\r\n\(many)")) { XCTAssertTrue(($0 as! CsvError).message.contains("more than")) }
+    }
+
+    func testAFormulaLookingNameSurvivesAnExportAndImport() throws {
+        let log = WorkoutLog(date: "2026-10-14", dayName: "=SUM(A1)", dayIndex: 1, sets: ["+cmd": [SetLog(weight: "50", reps: "8")]])
+        let back = try Csv.parse(Csv.export(logs: [log], weights: [])).logs[0]
+        XCTAssertEqual(back.dayName, "=SUM(A1)")
+        XCTAssertEqual(back.sets["+cmd"]?.count, 1)
+        XCTAssertEqual(Csv.unescape("'normal"), "'normal") // an apostrophe the export did not add is kept
+    }
+
     func testWindowsLineEndingsBlankLinesAndABOMAreAccepted() throws {
         let head = Csv.header.joined(separator: ",")
         let out = try Csv.parse("\u{FEFF}\(head)\r\n\r\nweight,2026-10-14,,,,,80,,kg,,\r\n")
