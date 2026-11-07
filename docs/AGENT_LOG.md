@@ -170,3 +170,10 @@ Claimed, branch `grok/core-progression-check`, NEW files only:
 - `Packages/Fit2216Core/Tests/Fit2216CoreTests/ProgressionCheckTests.swift`
 It gives each exercise of the `Plan.pick` workout a decision: eligible to increase, hold, or no data, with a reason code and the evidence behind it.
 Not touched: existing core files, the app (`LoggingView`, `SummaryView` and `Strength.swift` are in Agent A's open PR #10), `FINDINGS.md`. It is not shown in the app. A UI change is left to Agent A.
+
+### 2026-11-06 · Grok Bot · handoff (core progression check, PR #13)
+Done: https://github.com/krishna5166/Log2216-IOS/pull/13 (`grok/core-progression-check`, base `main` `aae5923`). Two new files only, 199 lines added.
+`ProgressionCheck.nextWorkout(plan:logs:unit:now:cal)` uses `Plan.pick` to choose the workout. For each exercise it returns eligible to increase, hold or no data, with a reason code and evidence (date, load, reps, prescribed sets, target reps, unit).
+It never invents an increase. Eligible needs every prescribed set at one load above 0 reaching the top of the rep range. These hold: a short or missing set, different loads, bodyweight or 0, a value that can't be read, skipped, swapped, older than 21 days. No history or no rep number gives no data. Today's log is ignored.
+Ran: `swift test` on Linux (Swift 6.1.2), 159 passed (145 before plus 14 new); CI `Fit2216Core (swift test)` passed. NOT run: an Xcode build or a device test.
+Not shown in the app. Suggested for Agent A, after PR #10: show the reason on the set page or Summary. Also decide whether `Plan.readyToIncrease`, which the logging screen uses for its weight suggestion, should follow these stricter rules (valid numbers, one load). It currently differs.
