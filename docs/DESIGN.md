@@ -10,6 +10,11 @@ Reference: Apple Fitness (workout screen and Summary). The app should feel like 
 - **Rings** for progress: two on Summary (sets today, workouts this week), four on Macros (calories, protein, carbs, fat).
 - **Cards, not lists**, for the five main screens. Settings, Plan editor and the history screens stay as standard dark lists on purpose (it is how Apple styles them, and they are rarely opened).
 
+## Summary and the streak (owner decisions, 2026-11-07)
+- The rings card (rest day, rings, sets, week, streak, legend) was removed: the owner found it of no use. Summary starts with the title and, beside it, a **flame with the streak number**.
+- **The streak counts weeks in a row in which every planned workout was done**, on any days and in any order: a week shifted by a day (Monday missed, plan finished Tuesday to Saturday) still counts. This week adds one when its last workout is done and, while it is still going, neither adds nor breaks anything. A finished week with a workout missing resets it to 0. A workout skipped on purpose counts as not done. Weeks are judged against the current plan. Rule: `Summary.weekStreak` in core, same test as the week strip uses (`weekLog` and `Plan.isComplete`).
+- The older day-by-day `Summary.streak` and the `Summary.guidance` text are still in core, tested, but no longer shown.
+
 ## Workout screen
 - All planned sets stacked vertically with numbered circles; the current set is open with big weight and reps and a Log set button, others are one line. Nothing is saved until Log set.
 - Drafts are prefilled from the suggestion (last time, plus one step when ready) or the bottom of the rep range.

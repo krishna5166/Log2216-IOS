@@ -50,6 +50,31 @@ public enum Summary {
         return candidates.first(where: { $0.date == date }) ?? candidates.first
     }
 
+    /// The streak shown on Summary: how many weeks (Monday to Sunday) in a row you did every planned workout, on any days and in
+    /// any order, so a week shifted by a day still counts. This week adds one as soon as its last workout is done and, while it is
+    /// still going, neither adds nor breaks anything. A finished week with a workout missing, or only skipped, resets it to 0.
+    /// A week counts when its plan days all show as done on the week strip (`weekLog` and `Plan.isComplete`).
+    /// Weeks are judged against the current plan.
+    public static func weekStreak(plan: [TemplateDay], logs: [WorkoutLog], _ now: Date, _ cal: Calendar = .current, maxWeeks: Int = 104) -> Int {
+        let training = plan.filter { $0.type != .rest && !$0.exercises.isEmpty }
+        guard !training.isEmpty else { return 0 }
+        func complete(weekOf monday: Date) -> Bool {
+            let dates = Dates.weekDates(monday, cal)
+            return training.allSatisfy { day in
+                let date = Dates.localDate(dates[Dates.mondayIndex(day.day)], cal)
+                guard let log = weekLog(for: day, on: date, in: logs, cal) else { return false }
+                return log.skipped != true && Plan.isComplete(log, day)
+            }
+        }
+        let thisMonday = Dates.monday(of: now, cal)
+        var count = complete(weekOf: thisMonday) ? 1 : 0
+        for back in 1...max(1, maxWeeks) {
+            guard let monday = cal.date(byAdding: .day, value: -7 * back, to: thisMonday), complete(weekOf: monday) else { break }
+            count += 1
+        }
+        return count
+    }
+
     /// Consecutive scheduled training days handled, counting back from today. Rest days and days without a plan entry are skipped over;
     /// a deliberately skipped day neither counts nor breaks the streak; today only counts once it is handled and never breaks the streak.
     public static func streak(plan: [TemplateDay], logs: [WorkoutLog], _ now: Date, _ cal: Calendar = .current, maxDays: Int = 400) -> Int {

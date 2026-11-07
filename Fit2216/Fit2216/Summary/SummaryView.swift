@@ -10,19 +10,18 @@ struct SummaryView: View {
     var body: some View {
         let now = model.now
         let session = Summary.today(plan: model.plan, logs: model.logs, now)
-        let streak = Summary.streak(plan: model.plan, logs: model.logs, now)
+        let streak = Summary.weekStreak(plan: model.plan, logs: model.logs, now)
         let week = Summary.week(plan: model.plan, logs: model.logs, now)
         let todayLog = session.flatMap { s in model.logs.first { $0.date == Dates.localDate(now) && Plan.matches($0, s.day) } }
         let left = session.map { Summary.remaining(day: $0.day, log: todayLog) } ?? []
         let bodyCard = Summary.body(weights: model.weights, profile: model.profile, now)
         let best = Summary.recentBest(logs: model.recordLogs, now)
         let next = session.flatMap { ($0.state == .finished || $0.state == .rest) ? Plan.nextUp(model.plan, model.logs, now, afterDay: $0.day.day) : nil }
-        let nextName = next.map { "\($0.name) · \(Calendar.current.shortWeekdaySymbols[$0.day])" }
 
         ScrollView {
             VStack(spacing: 14) {
+                SummaryHeader(streak: streak)
                 if let session {
-                    HeroCard(session: session, guidance: Summary.guidance(session, nextName: nextName), streak: streak, week: week)
                     if session.state != .rest && session.state != .skipped && (!left.isEmpty || next != nil) {
                         UpNextCard(session: session, left: left, next: next)
                     }
@@ -41,7 +40,8 @@ struct SummaryView: View {
             .padding(.top, 8)
             .padding(.bottom, 16)
         }
-        .navigationTitle("Summary")
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             StartBar(session: session, ready: model.canLog) {
                 guard let session else { return }
@@ -59,54 +59,28 @@ struct SummaryView: View {
     }
 }
 
-/// The top card, like Fitness's Activity Rings: two rings (sets today, workouts this week) and big coloured numbers.
-private struct HeroCard: View {
-    let session: TodaySession
-    let guidance: Guidance
+/// "Summary" with the streak beside it: a flame and the number of weeks in a row with every planned workout done.
+private struct SummaryHeader: View {
     let streak: Int
-    let week: WeekSummary
-
-    private var setsProgress: Double { session.plannedSets > 0 ? Double(session.loggedSets) / Double(session.plannedSets) : 0 }
-    private var weekProgress: Double { week.planned > 0 ? Double(week.done) / Double(week.planned) : 0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.isToday ? "TODAY · \(session.day.name.uppercased())" : "NEXT PLANNED · \(session.day.name.uppercased())")
-                    .font(.caption.weight(.bold)).foregroundStyle(.secondary).lineLimit(1)
-                Text(guidance.headline).font(.system(size: 28, weight: .bold, design: .rounded))
-                Text(guidance.detail).font(.subheadline).foregroundStyle(.secondary)
+        HStack(alignment: .center, spacing: 12) {
+            Text("Summary")
+                .font(.system(size: 34, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill").foregroundStyle(streak > 0 ? Color.orange : Color.secondary)
+                Text("\(streak)")
+                    .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(streak > 0 ? Color.primary : Color.secondary)
             }
-
-            HStack(spacing: 22) {
-                ZStack {
-                    Ring(progress: setsProgress, color: Theme.pink, size: 146)
-                    Ring(progress: weekProgress, color: Theme.lime, size: 146 - 42)
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    metric("Sets", "\(session.loggedSets)/\(session.plannedSets)", "sets", Theme.pink)
-                    metric("This week", "\(week.done)/\(week.planned)", "wks", Theme.lime)
-                    metric("Streak", "\(streak)", streak == 1 ? "day" : "days", .orange)
-                }
-                Spacer(minLength: 0)
-            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Color(.secondarySystemBackground), in: Capsule())
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Sets today: \(session.loggedSets) of \(session.plannedSets). Workouts this week: \(week.done) of \(week.planned). Streak: \(streak) \(streak == 1 ? "day" : "days").")
-
-            Text("Outer ring: sets today. Inner ring: workouts this week.").font(.caption).foregroundStyle(.secondary)
-
-            if !session.muscles.isEmpty {
-                Text(session.muscles.map(\.label).joined(separator: " · ")).font(.footnote).foregroundStyle(.secondary)
-            }
+            .accessibilityLabel("Streak: \(streak) \(streak == 1 ? "week" : "weeks") in a row with every workout done")
+            Spacer(minLength: 0)
         }
-        .card()
-    }
-
-    private func metric(_ label: String, _ value: String, _ unit: String, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(label).font(.subheadline)
-            BigValue(value: value, unit: unit, color: color, size: 28)
-        }
+        .padding(.top, 4)
     }
 }
 
