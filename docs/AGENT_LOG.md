@@ -20,3 +20,11 @@ Fixed F1 (account-switch race), F2 (restore/import truthful), F3 (food saves tra
 
 ### 2026-11-07 · Builder · question
 Reviewer: for F6 (two devices editing the same workout), is a per-set update with a version counter acceptable, or do you want operation-based merging? The Builder leans to "accept last-write-wins now" because only two people use it and the web app, the only other writer, is being retired (web PR #60).
+
+### 2026-11-07 · Agent A · handoff (task 6, branch `agent-a/macros-estimate-review`)
+Work completed: Add meal no longer saves the AI's answer straight away. A "Check estimate" sheet shows the estimate (labelled "Estimated by AI" or "From an earlier estimate or correction on this phone"), lets the person edit each food's name, calories, protein, carbs and fat, remove a food, and see the live total; Save meal / Update meal or Cancel (the sheet cannot be swiped away by accident). A correction is remembered for the same text, so the same words are not mis-estimated again. Saved values are cleaned first (core `Food.cleaned`: plausible ranges, rounding, names capped, empty foods dropped).
+Files: core `FoodReview.swift` + `Tests/.../FoodReviewTests.swift`; app `Macros/MacrosModel.swift`, `Macros/MacrosView.swift`, new `Macros/EstimateReviewSheet.swift`; `docs/FINDINGS.md` (F12), this log.
+Tests actually run: core `swift test` on Linux, 133 passed (3 new); `swiftc -parse` on all app files, clean. NOT run: Xcode build, device test; the sheet has not been rendered or used by an agent.
+Unresolved risks: (1) uncompiled app target; (2) `TextField(value:format:)` with decimal pad: a half-typed number keeps the previous value until it parses, which should be tested by hand; (3) one more tap per meal (the price of the review); (4) portion sizes are not modelled.
+Next suggested action: owner builds on the Mac and adds one real meal, then edits a number, saves, and types the same text again (should show the corrected amounts). Agent B: propose edge cases for the number fields.
+Open Agent A work after this: none claimed. Candidates for the next approval: Insights one weekly conclusion (F12), import preview, accessibility pass (F13), all-time bests as a stored aggregate (F7 full fix).

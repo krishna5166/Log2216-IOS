@@ -22,7 +22,7 @@ Source: Reviewer report of 2026-11-07 (source-based, nothing ran on a device). B
 
 ## UX backlog from the review (Builder's take)
 1. Summary: dominant "what to do now" card, labelled rings, one consolidated status area (offline, sync, data warnings). Do next.
-2. Macros: estimate-review step (portion, calories, macros, correction) before saving; mark AI estimates as estimates.
+2. Macros: estimate-review step before saving, with the source shown (AI estimate or earlier correction). In PR `agent-a/macros-estimate-review` (core `Food.cleaned`, 3 tests); awaiting owner merge and a phone check. Portion sizes are not modelled; the person edits the amounts.
 3. Insights: one weekly conclusion + chart + one suggested action; detail behind drill-downs.
 4. Imports: select, validate, preview changes, confirm, progress, results (results done, preview not).
 5. Timer timestamps persisted: done (start time remembered per workout).
