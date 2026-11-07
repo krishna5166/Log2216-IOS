@@ -90,7 +90,8 @@ private struct HeroCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Sets today: \(session.loggedSets) of \(session.plannedSets). Workouts this week: \(week.done) of \(week.planned). Streak: \(streak) \(streak == 1 ? "day" : "days").")
 
             Text("Outer ring: sets today. Inner ring: workouts this week.").font(.caption).foregroundStyle(.secondary)
 

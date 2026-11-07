@@ -116,6 +116,8 @@ struct StrengthCard: View {
             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel(format: .dateTime.month(.abbreviated).day()).foregroundStyle(.secondary) } }
             .chartYAxis(.hidden)
             .frame(height: 170)
+            .accessibilityLabel("Strength chart")
+            .accessibilityValue(s.summary)
             HStack(spacing: 14) {
                 Label("Volume", systemImage: "circle.fill").foregroundStyle(Theme.lime)
                 Label("Estimated max", systemImage: "circle.fill").foregroundStyle(Theme.cyan)
