@@ -153,8 +153,8 @@ extension FirestoreService {
         }
     }
 
-    func loadAllLogs(uid: String) async throws -> [WorkoutLog] {
-        let snapshot = try await user(uid).collection("logs").order(by: "date", descending: true).getDocuments()
+    func loadAllLogs(uid: String, source: FirestoreSource = .default) async throws -> [WorkoutLog] {
+        let snapshot = try await user(uid).collection("logs").order(by: "date", descending: true).getDocuments(source: source)
         return snapshot.documents.compactMap { FirestoreDecoding.decode(WorkoutLog.self, from: $0.data()) }
     }
 

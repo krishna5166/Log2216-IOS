@@ -15,7 +15,7 @@ struct SummaryView: View {
         let todayLog = session.flatMap { s in model.logs.first { $0.date == Dates.localDate(now) && Plan.matches($0, s.day) } }
         let left = session.map { Summary.remaining(day: $0.day, log: todayLog) } ?? []
         let bodyCard = Summary.body(weights: model.weights, profile: model.profile, now)
-        let best = Summary.recentBest(logs: model.logs, now)
+        let best = Summary.recentBest(logs: model.recordLogs, now)
         let next = session.flatMap { $0.state == .finished ? Plan.nextUp(model.plan, model.logs, now, afterDay: $0.day.day) : nil }
 
         ScrollView {
