@@ -90,7 +90,11 @@ final class AppModel {
 
     private func apply(_ loaded: FirestoreService.Loaded) {
         plan = loaded.doc.plan
-        library = loaded.doc.library
+        // Half-typed leftovers ("B", "Ba", "Barb") from older versions are removed once and the tidy list is saved back.
+        library = ExerciseLibrary.cleaned(loaded.doc.library, keeping: loaded.doc.plan.flatMap { $0.exercises.map(\.name) })
+        if library != loaded.doc.library.sorted(), let uid, !loaded.doc.library.isEmpty {
+            tracked { done in service.saveLibrary(uid: uid, library: library, completion: done) }
+        }
         profile = loaded.doc.profile
         logs = loaded.logs
         weights = loaded.weights
