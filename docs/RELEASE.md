@@ -2,6 +2,8 @@
 
 Bundle ID `com.mohankrishna.Fit2216`, team X4UN3W4A65. Distribution is invite-only through TestFlight (not listed).
 
+The step-by-step device checklist with expected results is in [VERIFY.md](VERIFY.md).
+
 ## Every new build
 1. `git pull` in `Log2216-IOS`. Never commit `GoogleService-Info.plist`.
 2. Xcode: target Fit2216, General tab, **Build** must be higher than the last upload (Version stays 1.0 until a bigger change).
