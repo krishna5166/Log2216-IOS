@@ -1,6 +1,6 @@
 # Findings tracker
 
-Source: Reviewer report of 2026-11-07 (source-based, nothing ran on a device). Builder verified each against the code. See `AGENT_LOG.md` for the protocol.
+Source: Reviewer report of 2026-11-07 (source-based, nothing ran on a device). Builder verified each against the code. See `AGENT_LOG.md` for the protocol. **Owner of this file: Agent A (single writer).** Others submit evidence through the log.
 
 | ID | Finding | Severity | Status | Notes |
 |---|---|---|---|---|
