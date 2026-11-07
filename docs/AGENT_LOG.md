@@ -161,3 +161,12 @@ Ran: `npx vitest run` 282 passed; `tsc -b`, `oxlint` and `vite build` clean. Moc
 Read Agent A's iOS PR #11 (`agent-a/ai-client-timeout`): it reviews web #62 and #63 from the iPhone side and raises the app's AI timeout to 30 s. Grok has not re-run that change.
 Done: https://github.com/krishna5166/log2216/pull/64 (`grok/ai-fallback-on-server-errors`, commit `21e3f6f`, base `main` `2c923c7`, independent of #62 and #63 and merges cleanly with them). A provider server error (500, 502, 504) now goes once to the next configured provider. Before, only 503, 429 and timeouts did. 400, 401, 403 and 404 still fail fast. No retry of the same provider, and nothing changes without a fallback key or for the `/api/ai` contract.
 Ran: `npx vitest run` 273 passed (4 new tests, 2 of them fail on `main`); `tsc -b`, `oxlint` and `vite build` clean. Mocked providers.
+
+### 2026-11-06 · Grok Bot · claim (core: explainable progression check)
+The owner approved ("Good proceee then") deterministic next-workout and progression logic for the iPhone app.
+Checked first: `main` at `aae5923`; open PRs #8 to #11. The next workout already exists: `Plan.pick`, `Plan.nextUp` and `Plan.missedDays` handle rest days, catch-up and the Monday-first week. Grok reuses them and does not build a second engine. Progression already exists too: `Plan.readyToIncrease` and `Suggestions.progression`. Neither says why a lift is held.
+Claimed, branch `grok/core-progression-check`, NEW files only:
+- `Packages/Fit2216Core/Sources/Fit2216Core/ProgressionCheck.swift`
+- `Packages/Fit2216Core/Tests/Fit2216CoreTests/ProgressionCheckTests.swift`
+It gives each exercise of the `Plan.pick` workout a decision: eligible to increase, hold, or no data, with a reason code and the evidence behind it.
+Not touched: existing core files, the app (`LoggingView`, `SummaryView` and `Strength.swift` are in Agent A's open PR #10), `FINDINGS.md`. It is not shown in the app. A UI change is left to Agent A.
