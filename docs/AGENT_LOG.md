@@ -256,3 +256,11 @@ Work completed: core `Summary.weekStreak` (6 tests, including the shifted-week c
 Tests actually run: core `swift test` on Linux, 173 passed, 0 failures (167 + 6 new); `swiftc -parse` on every app file, clean. NOT run: Xcode build, device; the new header and the removed card have not been seen.
 Unresolved risks: the header replaces the large navigation title with a custom one, so the title scrolls away with the page; the old day-based `Summary.streak` and `Summary.guidance` are now unused (left in core on purpose); a plan change re-judges old weeks against the new plan.
 Next suggested action: owner merges PR #19 (now contains the missed-day fix and these Summary changes) and uploads build 5; Agent A walks through it one step at a time.
+
+### 2026-11-07 · Agent A · handoff (data compatibility, branch `agent-a/data-compat`, stacked on `agent-a/catch-up-done`)
+Source: owner's own Firestore export (read-only REST; 21 logs, 14 weights, 2 foodDays, user doc). Data kept only in a scratch folder, deleted, never committed; nothing written to Firestore by an agent.
+Findings (verified against the export): no decode problems (weights/reps are strings, units lb); plan changed ~1 Nov so older logs use old day and exercise names; 189 of 271 library entries were half-typed leftovers (written by the retired web app; the iOS plan editor saves only on commit).
+Work completed: core `ExerciseLibrary.cleaned` (drops prefix leftovers, blanks, case repeats; keeps plan names); `ExerciseNames.aliases` for the old names that are plainly the same lift (flat barbell bench press, high-to-low cable fly, machine shoulder press); `AppModel.apply` cleans the library on load and writes the tidy list back once (`FirestoreService.saveLibrary`, library field only). Not aliased on purpose (different equipment, owner's call): Flat dumbbell bench press, Incline dumbbell press, Preacher curls, Devil Press.
+Tests actually run: core `swift test`, 178 passed (5 new in `DataCompatTests`); `swiftc -parse` on both edited app files. NOT run: Xcode build, device.
+Unresolved risks: the library write-back happens on load (idempotent, library field only); aliases change how history is grouped, not the stored logs.
+Next suggested action: owner merges PR #19 then this PR, builds 5 and uploads; then Settings, Exercise names shows the remaining splits.

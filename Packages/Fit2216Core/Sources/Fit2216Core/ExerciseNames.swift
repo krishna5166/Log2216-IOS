@@ -14,6 +14,11 @@ public enum ExerciseNames {
     /// Old names that now mean another exercise (lowercase key to the current name). Add a line when you rename something in the plan.
     public static let aliases: [String: String] = [
         "romanian squat": "Squat",
+        // Push A / Push B days were replaced by Chest and Triceps / Shoulder and Abs (Nov 2026); same lifts, new spelling.
+        "flat barbell bench press": "Bench Press",
+        "high-to-low cable fly": "Cable Fly (H2L)",
+        "hight to low cable flies": "Cable Fly (H2L)",
+        "machine shoulder press": "Shoulder press",
     ]
 
     /// Trimmed, with runs of spaces collapsed.

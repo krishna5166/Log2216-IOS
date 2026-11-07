@@ -33,6 +33,10 @@ extension FirestoreService {
         user(uid).setData(["plan": objects(plan), "library": library], merge: true, completion: completion)
     }
 
+    func saveLibrary(uid: String, library: [String], completion: ((Error?) -> Void)? = nil) {
+        user(uid).setData(["library": library], merge: true, completion: completion)
+    }
+
     /// Changes only the named profile fields (`profile.heightCm` ...); nil removes a field. Creates the document if it does not exist yet.
     func updateProfile(uid: String, fields: [String: Any?], completion: ((Error?) -> Void)? = nil) {
         var nested: [String: Any] = [:]
