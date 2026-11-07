@@ -14,6 +14,13 @@ Bundle ID `com.mohankrishna.Fit2216`, team X4UN3W4A65. Distribution is invite-on
 - Add build setting `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` so the export-compliance question is not asked every upload (the app only uses standard HTTPS).
 - Warnings "Upload Symbols Failed" for Firebase frameworks are harmless.
 
+## Xcode settings to check once (needs your Mac)
+- **Portrait only:** target Fit2216, General, Deployment Info, tick only Portrait for iPhone (the layouts are built for portrait).
+- **Encryption:** add `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` under Build Settings (search "Info.plist Values", or add a User-Defined setting).
+- **Deployment target** iOS 17.6, **iPhone only**, display name Fit2216, Version 1.0.
+- **Privacy manifest** (`PrivacyInfo.xcprivacy`) should show under the Fit2216 folder and be in the target's Copy Bundle Resources.
+- **Live Activity (later):** File, New, Target, Widget Extension, tick Include Live Activity; then add `NSSupportsLiveActivities = YES` to the app's Info. Tell Claude when the target exists and the activity code can be written.
+
 ## Testers
 - Internal testers must be App Store Connect users (Users and Access, role Marketing, access to Fit2216 only), then ticked in the TestFlight group.
 - An invite is single-use and tied to the Apple Account that redeemed it. If someone uses the wrong one: remove the tester from the group and add them again (new invite).
@@ -27,3 +34,17 @@ Bundle ID `com.mohankrishna.Fit2216`, team X4UN3W4A65. Distribution is invite-on
 - Upload rejected for icon: the AppIcon needs a 1024x1024 PNG without transparency (done: `AppIcon.appiconset`).
 - Build error about missing imports: with member-import visibility on, each file must import every module whose members it uses.
 - Xcode edits `Package.swift` of `Fit2216Core` (a `// xcode:` line): `git restore` it before pulling.
+
+## Production checklist
+| Item | State |
+|---|---|
+| Core logic tested (130 tests, CI on every push) | done |
+| Data safety: no writes before load, fresh read before logging, narrow profile writes, backups | done |
+| Offline: opens from the phone's copy, unsent changes tracked and shown | done |
+| Diagnostics screen and shareable report | done |
+| Crash reports | automatic for TestFlight builds, in Xcode Organizer |
+| Privacy manifest | done (update when data types or system APIs change) |
+| App icon, export compliance answered | done (build setting for compliance: your Mac) |
+| Portrait lock, encryption build setting | your Mac, see above |
+| Live Activity for the rest timer | needs the Widget Extension target |
+| Versioned AI API and repo rename | after PR #60 (web retirement) is merged |
