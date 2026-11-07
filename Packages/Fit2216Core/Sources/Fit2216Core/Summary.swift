@@ -37,6 +37,19 @@ public enum Summary {
         return TodaySession(day: day, state: state, muscles: muscles, plannedSets: Plan.plannedSets(day), loggedSets: log.map(Plan.loggedSets) ?? 0, isToday: todays != nil)
     }
 
+    /// The log that counts for `day` on `date`: one dated that day, else one for the same session done on another day of that
+    /// Monday-to-Sunday week (a missed Monday done on Friday, Friday's session done early on Thursday). A finished log beats a
+    /// skipped one, so a skipped day that was later done counts as done. A session from another week never counts.
+    static func weekLog(for day: TemplateDay, on date: String, in logs: [WorkoutLog], _ cal: Calendar) -> WorkoutLog? {
+        guard let d = Dates.parse(date, cal) else { return logs.first { $0.date == date && Plan.matches($0, day) } }
+        let dates = Dates.weekDates(d, cal).map { Dates.localDate($0, cal) }
+        guard let first = dates.first, let last = dates.last else { return nil }
+        let candidates = logs.filter { Plan.matches($0, day) && $0.date >= first && $0.date <= last }
+        let finished = candidates.filter { $0.skipped != true && Plan.isComplete($0, day) }
+        if let best = finished.first(where: { $0.date == date }) ?? finished.first { return best }
+        return candidates.first(where: { $0.date == date }) ?? candidates.first
+    }
+
     /// Consecutive scheduled training days handled, counting back from today. Rest days and days without a plan entry are skipped over;
     /// a deliberately skipped day neither counts nor breaks the streak; today only counts once it is handled and never breaks the streak.
     public static func streak(plan: [TemplateDay], logs: [WorkoutLog], _ now: Date, _ cal: Calendar = .current, maxDays: Int = 400) -> Int {
@@ -46,7 +59,7 @@ public enum Summary {
             guard let d = cal.date(byAdding: .day, value: -back, to: now) else { break }
             guard let day = plan.first(where: { $0.day == Dates.weekday(d, cal) }), day.type != .rest, !day.exercises.isEmpty else { continue }
             let date = Dates.localDate(d, cal)
-            let log = logs.first { $0.date == date && Plan.matches($0, day) }
+            let log = weekLog(for: day, on: date, in: logs, cal)
             if log?.skipped == true { continue }
             if let log, Plan.isComplete(log, day) { count += 1; continue }
             if date == today { continue } // not done yet, but the day is not over
@@ -100,7 +113,7 @@ extension Summary {
             var state: WeekDay.State
             if let day, day.type != .rest, !day.exercises.isEmpty {
                 planned += 1
-                let log = logs.first { $0.date == date && Plan.matches($0, day) }
+                let log = weekLog(for: day, on: date, in: logs, cal)
                 if log?.skipped == true { state = .skipped }
                 else if let log, Plan.isComplete(log, day) { state = .done; done += 1 }
                 else if date == today { state = .today }
