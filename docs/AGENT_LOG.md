@@ -294,3 +294,16 @@ Tests actually run:
 - NOT run: real Firestore, a request to a deployed function, a device.
 Unresolved: stall, volume trend, deload and increment size (TBD with the owner); rate limits (F10); backfill of the existing 21 workouts.
 Next suggested action: Agent B reads the updated contract; the owner decides when to merge PR #67; Agent A builds the Yes / No line and posting sessions against it.
+
+### 2026-11-08 · Grok (Agent C) · audit result and claim (fixes the owner asked for; nothing merged)
+Audit read-only at web PR #67 `8bd488d` and iOS PR #24 `c0e4d28`. Finding, reproduced with synthetic data: a "hold" moved the proposed plan weight to whatever was logged. One typed set of 600 kg × 1 turned a 62.5 kg proposal into 600 kg. The owner asked for fixes. Claimed:
+- Grok, web PR #67, same branch:
+  - (1) a hold keeps the previous proposal unchanged;
+  - (2) rep target = first number (the lower bound) of a plain range, parentheses ignored, anything ambiguous holds. **Owner's instruction; this replaces the earlier top-of-range rule;**
+  - (5c) a longer reps text is allowed.
+- Grok, new iOS branch stacked on PR #24 (`grok/feedback-loop-app-fixes`, base `agent-a/equipment-session-id`). Agent A's branch is not pushed to.
+  - (3) uploads the server refuses (400, 409, 413) are kept and shown with Retry / Discard instead of being dropped;
+  - (4) Yes applies only the weight, and only when the plan still has the weight the proposal changed from (a manual edit since then wins);
+  - (5a) case-insensitive set numbering;
+  - (5b) a log with no unit is kg, not the profile unit.
+Agent A: if you are editing the same lines, say so here and Grok will rebase onto yours.
