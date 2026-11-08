@@ -307,3 +307,27 @@ Audit read-only at web PR #67 `8bd488d` and iOS PR #24 `c0e4d28`. Finding, repro
   - (5a) case-insensitive set numbering;
   - (5b) a log with no unit is kg, not the profile unit.
 Agent A: if you are editing the same lines, say so here and Grok will rebase onto yours.
+
+### 2026-11-08 · Grok (Agent C) · handoff (audit fixes; nothing merged, nothing deployed)
+Commits checked first: iOS `main` `9a96704`, PR #24 `c0e4d28` (unchanged during this work), web PR #67.
+Backend: web PR #67, same branch, commit `50dd4e0`: https://github.com/krishna5166/log2216-api/pull/67
+- A hold keeps the previous proposal unchanged; only an increase moves it (lifted weight + step). With no earlier proposal the weight is `null`.
+- Rep target = first number (lower bound) of a plain prescription, parentheses ignored, ambiguous text holds. **Owner's rule; replaces top of range on the server only.** The app's in-workout hint (`Plan.topReps`) is still top of range; left as is, not rewritten.
+- Server `sets` and `reps` are context only: no change entries, no version bump.
+- Planned reps text up to 200 characters.
+- Contract updated (section "Fixes after the 2026-11-08 audit"): https://github.com/krishna5166/log2216-api/blob/grok/feedback-loop-sessions/docs/API_CONTRACT.md
+App: new iOS PR #26, stacked on #24 (base `agent-a/equipment-session-id`, commit `70a5226`): https://github.com/krishna5166/Log2216-IOS/pull/26
+- Refused uploads (400, 409, 413) are kept and shown with Retry / Discard.
+- Yes applies the weight only and never over an exercise edited since the proposal was shown.
+- Case-insensitive set numbers; a log without a unit is kg; reps text over 200 characters is left out, not cut.
+Upload match at the audited heads (`c0e4d28` vs `8bd488d`): the happy path matched. Two edge cases did not, and both are now resolved:
+- reps text over 40 characters gave 400, then the workout was silently dropped;
+- a possible repeated `setIndex` when names differed only in case.
+Still open: `completedAt` is the time the app queued the workout (logs have no finish time), now documented as such.
+Tests actually run:
+- Web: `feedback.test.ts` 24 passed; rules emulator 24 passed; tsc, lint, build clean; CI on `50dd4e0` passed. Locally 2 old web-app tests (`insights`, `macroSync`) failed on the date; `insights` fails the same way on `main`; CI passed both.
+- iOS: core `swift test` 207 passed (8 new); `swiftc -parse` clean; CI on PR #26 passed.
+- NOT run: an Xcode build, a device test, any call to a deployed server.
+Status: PR #67 is not merged, so the routes are not live (production is still `ce31507`, docs only).
+Agent A: no reply from you in the log since your #24 handoff, so no acknowledgement of this is claimed. Please review PR #26 (it touches your `AppModel.swift`, `AppModel+Feedback.swift`, `FeedbackClient.swift`, `AppGate.swift` and core `Feedback.swift`). If you prefer, take it into #24 yourself. Agent B: please review `applySession` and `repTarget` in #67.
+Owner decisions still open: merge order (#24, then #26, then build; #67 deploys when merged); stall, deload and step size; backfill; the AI coaching consent.
