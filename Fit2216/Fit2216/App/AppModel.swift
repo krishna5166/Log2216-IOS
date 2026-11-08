@@ -25,6 +25,8 @@ final class AppModel {
     var phase: Phase = .idle
     /// The feedback loop's newest plan proposal, shown with Yes / No until answered, and whether a workout screen is open (nothing is offered then).
     var planProposal: PlanProposal?
+    var planProposalBasis: [TemplateDay]?   // the plan as it was when the proposal was shown (a later manual edit wins)
+    var feedbackFailures: [FeedbackFailure] = []   // workouts the server refused, shown with Retry / Discard
     var workoutOpen = false
     @ObservationIgnored var flushingFeedback = false
     /// Changes saved on this phone that the cloud has not confirmed yet (waiting for a connection), and the last reason one was refused.
@@ -210,7 +212,7 @@ final class AppModel {
 
     private func clearData() {
         plan = []; library = []; logs = []; archive = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil
-        planProposal = nil; workoutOpen = false
+        planProposal = nil; planProposalBasis = nil; feedbackFailures = []; workoutOpen = false
         unsent = 0; writeProblem = nil; slowSync = false; slowTimer?.cancel()
     }
 

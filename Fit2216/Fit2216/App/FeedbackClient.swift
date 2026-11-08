@@ -5,7 +5,7 @@ import Fit2216Core
 /// Talks to the feedback-loop routes on your Vercel server (`/api/sessions`, `/api/plan`). Every failure is quiet: the loop is a bonus,
 /// and a finished workout is already safe in Firestore. Wire format: `docs/API_CONTRACT.md` in the `log2216-api` repository.
 struct FeedbackClient {
-    enum Outcome { case sent, drop, retry }
+    enum Outcome: Equatable { case sent, refused(status: Int, message: String), retry }
 
     private func request(_ path: String, method: String, body: Data? = nil) async -> (Int, Data)? {
         guard let base = AppConfig.apiBaseURL, let user = Auth.auth().currentUser, let token = try? await user.getIDToken() else { return nil }
@@ -19,15 +19,14 @@ struct FeedbackClient {
         return (http.statusCode, data)
     }
 
-    /// Sends one finished workout. 200/201 mean stored (a repeat of the same session id is harmless); 400, 409 and 413 will never succeed,
-    /// so they are dropped; anything else (offline, server not updated yet, 5xx) is tried again later.
+    /// Sends one finished workout. 200/201 mean stored (a repeat of the same session id is harmless); 400, 409 and 413 will never succeed
+    /// as they are, so they come back as `refused` with the server's short reason (kept and shown, not dropped); anything else (offline,
+    /// server not updated yet, 5xx) is tried again later.
     func post(_ session: FeedbackSession) async -> Outcome {
-        guard let body = try? JSONEncoder().encode(session), let (status, _) = await request("api/sessions", method: "POST", body: body) else { return .retry }
-        switch status {
-        case 200, 201: return .sent
-        case 400, 409, 413: return .drop
-        default: return .retry
-        }
+        guard let body = try? JSONEncoder().encode(session), let (status, data) = await request("api/sessions", method: "POST", body: body) else { return .retry }
+        if status == 200 || status == 201 { return .sent }
+        if FeedbackFailure.isRefusal(status) { return .refused(status: status, message: FeedbackFailure.message(status: status, body: data)) }
+        return .retry
     }
 
     /// The server's proposed plan numbers when it has a version newer than `since`; nil for "nothing new", "none yet" and any failure.
@@ -53,5 +52,16 @@ enum FeedbackOutbox {
         else if let data = try? JSONEncoder().encode(kept) { UserDefaults.standard.set(data, forKey: key(uid)) }
     }
 
-    static func clear(_ uid: String) { UserDefaults.standard.removeObject(forKey: key(uid)) }
+    static func clear(_ uid: String) { UserDefaults.standard.removeObject(forKey: key(uid)); UserDefaults.standard.removeObject(forKey: failedKey(uid)) }
+
+    // Workouts the server refused, kept until the owner retries or discards them.
+    private static func failedKey(_ uid: String) -> String { "fit2216.feedback.failed.\(uid)" }
+    static func loadFailed(_ uid: String) -> [FeedbackFailure] {
+        guard let data = UserDefaults.standard.data(forKey: failedKey(uid)) else { return [] }
+        return (try? JSONDecoder().decode([FeedbackFailure].self, from: data)) ?? []
+    }
+    static func saveFailed(_ items: [FeedbackFailure], uid: String) {
+        if items.isEmpty { UserDefaults.standard.removeObject(forKey: failedKey(uid)) }
+        else if let data = try? JSONEncoder().encode(items) { UserDefaults.standard.set(data, forKey: failedKey(uid)) }
+    }
 }

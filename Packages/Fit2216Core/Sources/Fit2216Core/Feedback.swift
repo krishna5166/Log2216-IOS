@@ -32,9 +32,9 @@ public struct FeedbackSession: Codable, Equatable, Sendable {
     /// What to send for a finished workout, or nil when there is nothing to send: not finished, skipped, no session id yet,
     /// or no usable set. Unfilled and non-numeric sets are left out; a swapped-in lift is posted under its own name and is
     /// not listed in `planned` (the server then only holds, never raises, its weight).
-    public static func make(from log: WorkoutLog, plan: [TemplateDay], fallbackUnit: WeightUnit = .lb, now: Date = Date(), timeZone: TimeZone = .current) -> FeedbackSession? {
+    public static func make(from log: WorkoutLog, plan: [TemplateDay], fallbackUnit: WeightUnit = .kg, now: Date = Date(), timeZone: TimeZone = .current) -> FeedbackSession? {
         guard log.done == true, log.skipped != true, let id = log.sessionId, id.count >= 8 else { return nil }
-        let unit = log.unit ?? fallbackUnit
+        let unit = log.unit ?? fallbackUnit   // a log saved without a unit is kg everywhere else in the app (Units.logUnit)
         let day = log.template ?? plan.first { Plan.matches(log, $0) }
         var rows: [Set] = [], planned: [Planned] = []
         var next: [String: Int] = [:]   // exercise + equipment -> next set index
@@ -44,7 +44,7 @@ public struct FeedbackSession: Codable, Equatable, Sendable {
             guard !used.isEmpty else { continue }
             let entry = day?.exercises.first { ExerciseNames.tidy($0.name) == ExerciseNames.tidy(original) }
             let equipment = (swapped == nil ? entry?.equipment : nil) ?? Equipment.guess(from: swapped ?? original) ?? .other
-            let key = used + "|" + equipment.rawValue
+            let key = used.lowercased() + "|" + equipment.rawValue   // the server groups names case-insensitively too
             var kept = 0
             for set in log.sets[original] ?? [] where Plan.filled(set) {
                 guard let reps = Int(set.reps.trimmingCharacters(in: .whitespaces)), reps >= 0 else { continue }
@@ -56,7 +56,8 @@ public struct FeedbackSession: Codable, Equatable, Sendable {
                 rows.append(Set(exercise: String(used.prefix(100)), equipment: equipment.rawValue, setIndex: index, weight: weight, unit: unit.rawValue, reps: reps))
                 kept += 1
             }
-            if kept > 0, swapped == nil, let entry, !entry.reps.isEmpty {
+            // The server takes reps text up to 200 characters; a longer one is left out (the server then holds), never cut.
+            if kept > 0, swapped == nil, let entry, !entry.reps.isEmpty, entry.reps.count <= 200 {
                 planned.append(Planned(exercise: String(used.prefix(100)), equipment: equipment.rawValue, sets: entry.sets, reps: entry.reps))
             }
         }
@@ -132,22 +133,33 @@ public struct PlanProposal: Decodable, Equatable, Sendable {
     /// The plan with this proposal's numbers put in, and which exercises actually changed. Entries are matched to plan exercises
     /// by name and equipment (an exercise with no equipment chosen uses the guess from its name, else "other"); an entry that
     /// matches nothing is ignored. Never adds, removes or renames an exercise.
-    public func applied(to plan: [TemplateDay]) -> (plan: [TemplateDay], changed: [String]) {
+    /// Only the weight is applied: the server's `sets` and `reps` are the prescription the app itself sent (context), so copying them
+    /// back could undo a later plan edit. A weight in a different unit from the one the exercise already uses is not applied.
+    /// `basis` is the plan as it was when the proposal was shown: an exercise edited since then (any field) is left alone, so a
+    /// manual edit always wins over a proposal made before it.
+    public func applied(to plan: [TemplateDay]) -> (plan: [TemplateDay], changed: [String]) { applied(to: plan, basis: nil) }
+
+    public func applied(to plan: [TemplateDay], basis: [TemplateDay]?) -> (plan: [TemplateDay], changed: [String]) {
         var out = plan
         var changed: [String] = []
         for d in out.indices {
             for e in out[d].exercises.indices {
                 let ex = out[d].exercises[e]
+                if let basis, PlanProposal.exercise(ex.name, day: out[d].day, in: basis) != ex { continue } // edited since shown, or new
                 let equipment = ex.equipment ?? Equipment.guess(from: ex.name) ?? .other
-                guard let entry = exercises.first(where: { ExerciseNames.canonical($0.exercise).lowercased() == ExerciseNames.canonical(ex.name).lowercased() && $0.equipment == equipment }) else { continue }
+                guard let entry = exercises.first(where: { ExerciseNames.canonical($0.exercise).lowercased() == ExerciseNames.canonical(ex.name).lowercased() && $0.equipment == equipment }),
+                      let w = entry.weight, w > 0 else { continue }
+                if let have = ex.weightUnit, let want = entry.unit, have != want { continue }
                 var next = ex
-                next.sets = entry.sets
-                if !entry.reps.isEmpty { next.reps = entry.reps }
-                if let w = entry.weight { next.weight = w; next.weightUnit = entry.unit ?? ex.weightUnit }
+                next.weight = w; next.weightUnit = entry.unit ?? ex.weightUnit
                 if next != ex { out[d].exercises[e] = next; changed.append(ex.name) }
             }
         }
         return (out, changed)
+    }
+
+    private static func exercise(_ name: String, day: Int, in plan: [TemplateDay]) -> TemplateExercise? {
+        plan.first { $0.day == day }?.exercises.first { $0.name == name }
     }
 }
 

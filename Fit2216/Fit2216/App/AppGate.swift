@@ -23,7 +23,7 @@ struct AppGate: View {
                     if phase == .active { model.dayChanged(); Task { await model.refreshIfNeeded(); await model.flushFeedback(); await model.refreshProposal() } }
                 }
                 .overlay { LoadingOverlay() }
-                .safeAreaInset(edge: .top) { VStack(spacing: 0) { StatusBanner(uid: uid); PlanOfferBanner() } }
+                .safeAreaInset(edge: .top) { VStack(spacing: 0) { StatusBanner(uid: uid); FeedbackFailureBanner(); PlanOfferBanner() } }
         }
     }
 
