@@ -264,3 +264,9 @@ Work completed: core `ExerciseLibrary.cleaned` (drops prefix leftovers, blanks, 
 Tests actually run: core `swift test`, 178 passed (5 new in `DataCompatTests`); `swiftc -parse` on both edited app files. NOT run: Xcode build, device.
 Unresolved risks: the library write-back happens on load (idempotent, library field only); aliases change how history is grouped, not the stored logs.
 Next suggested action: owner merges PR #19 then this PR, builds 5 and uploads; then Settings, Exercise names shows the remaining splits.
+
+## Saturday, November 7, 2026 — Workout Feedback Loop Sprint
+Planned scope (requirements, not implemented yet). Owner reports Claude has been informed to stay in the loop and start the app-side items.
+1. Workout feedback loop: the backend tracks logged sets, reps and weights against the planned progression. Deterministic rules (stall detection, volume trends, deload triggers) in plain code, plus an AI coaching layer. Sri's sessions flow through the same pipeline. No beginner or advanced modes: one endpoint adapts per user from their data.
+2. Per-exercise-equipment progression series: the backend tracks progression per exercise-plus-equipment pair (barbell bench, dumbbell bench and Smith bench are separate series), so weights are never compared across equipment. Tags come from the app picker.
+3. Live workout plan: dynamic, not static. After each session the backend rewrites it (adjusted weights, reps, deload weeks). The app pulls it on open with a version stamp and swaps silently if newer, showing a one-line summary of changes (for example "three sets adjusted, based on your last four machine sessions") with the full diff behind a tap. Exercise swaps are out of scope: the loop only tunes numbers.
