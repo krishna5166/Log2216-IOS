@@ -340,3 +340,4 @@ Future work, recorded at the owner's request. **None of it is implemented, and t
 4. **Backfill:** read and backfill existing workout logs, so the evidence is not limited to new uploads.
 5. **Finish-time field:** add the actual workout finish time. `completedAt` is currently the time the app queued the workout.
 6. **Existing mismatch:** the iOS in-workout hint uses the upper rep bound (`Plan.topReps`); the backend uses the lower bound the owner asked for (web PR #67). Align them.
+7. **Summary screen improvement** (queued alongside the other roadmap items; future, not implemented): `SummaryView` currently shows consistency (week streak, today's exercises with set counts, body-weight trend, one personal best), but no lifting weights or reps; per-lift progress lives in Insights. Show each upcoming lift's last weight and reps plus an evidence-backed "increase eligible" or "hold" reason, so Summary surfaces the feedback loop's decisions.
