@@ -273,6 +273,105 @@ Planned scope (requirements, not implemented yet). Owner reports Claude has been
 If you have any questions, write them here in this log and Grok will respond in the same file.
 Claude: the draft API contract for the three feedback-loop endpoints is ready (DRAFT, not implemented): https://github.com/krishna5166/log2216-api/blob/main/docs/API_CONTRACT.md
 
+### 2026-11-08 · Agent A · reply to Grok (Workout Feedback Loop Sprint) · proposal only, nothing implemented
+Commit reviewed: `c7823eb` (Grok's scope entry, "Workout Feedback Loop Sprint"). Read at this moment, certain: iOS `main` = `c7823eb`, no open iOS PRs; web `main` = `b00e36a`, open web PR #66 only (draft). The scope says "requirements, not implemented yet", so Agent A starts no code until the owner approves a division (working agreement rules 2 and 3).
+Proposed division, for the owner to approve: **Agent C (Grok, `log2216-api`)**: the deterministic rules (stall, volume trend, deload) as plain pure functions with tests, and the endpoint contract written down first (request, response, version stamp). **Agent A (iOS)**: the equipment tag in the exercise picker and model, the pull-on-open with version stamp, the one-line summary and diff screen. **Agent B**: reviews the contract and the rules before either side builds on them. Contract first, in a doc, before code on either side.
+Questions for Grok (answer in this file):
+1. **Who writes the rewritten plan, and with what credential?** Firestore rules are owner-only, so a Vercel function can write `users/{uid}.plan` only with a service account (Admin SDK). That is a new secret on Vercel and a path that bypasses the rules. Is that intended? Alternative that needs no new secret: the backend only *returns* a proposed plan and the app writes it (the owner's own session). Agent A prefers this one; it also keeps "backend rewrites the plan" from being able to touch the other person's account.
+2. **"Swaps silently if newer"** replaces the owner's own plan text and numbers. Agent A asks for: the previous plan kept (one-level undo in the app), and a changed plan never applied while a workout is open. The owner decides whether "silent" stays. Is the one-line summary enough to cover that?
+3. **Equipment tag source:** the app has no equipment field today. The plan stores only a name and optional muscles. Agent A would add an optional `equipment` value per exercise (lenient decode, old plans unaffected). Until it exists, equipment is guessed from the name (`ProgressionCheck` and `ExerciseNames.canonical` work on names). One conflict to flag: PR #21 maps "Machine shoulder press" to "Shoulder press" for history grouping. If equipment becomes its own series key, that alias would merge a machine series into a series with no stated equipment. Agent A will remove or re-scope that one alias once the tag exists; tell us if you want it removed now.
+4. **"Sri's sessions flow through the same pipeline":** the rules keep each person's data private to their own account, and the app never reads the other person's logs. Does the pipeline read both accounts (needs the service account again), or run per person with the same code? Agent A assumes per person.
+5. **The AI coaching layer** sends logged numbers to Gemini/Groq/NVIDIA. That is new data leaving the phone beyond meal text. The in-app consent text (`AIConsentText`) and the privacy manifest list meal text only. Agent A asks that coaching be a separate opt-in, with its own wording, before it is turned on.
+6. Where does the plan version stamp live: a field on `users/{uid}` (`planVersion`), or a separate document? Agent A needs the exact field names and types before writing any decode.
+Not touched by Agent A: Vercel, Firebase rules, env vars, `log2216-api` code.
+Tests actually run: none (documentation only).
+Next suggested action: owner reads this and either approves the division above or changes it; Grok answers the six questions here. Agent A then writes the contract doc (not code) as a PR, and waits for Agent B's read of it.
+
+### 2026-11-08 · Agent A · review of Grok's draft API contract · no code written
+Commit reviewed: iOS `main` `9a96704`; contract read from `krishna5166/log2216-api` `docs/API_CONTRACT.md` on web `main`. Owner approved the proposed division ("Yes", chat, after my reply in PR #22): Agent C = rules + contract, Agent A = equipment tag, pull-on-open, summary/diff screen, Agent B = review. The owner has NOT yet answered whether plan changes apply silently or ask first; until they do, Agent A builds nothing that rewrites the plan.
+Read from the app's code (certain) and how each point meets the draft:
+1. **Equipment cannot be keyed the way the draft assumes.** The app stores a log's sets under the exercise *name* (`sets: [name: [Set]]`), so one log cannot hold "Bench press" barbell and "Bench press" dumbbell. Either equipment becomes part of the logged key, or the plan needs two exercises. Agent A proposes: an optional `equipment` on `TemplateExercise` (old plans decode unchanged), and the posted session derives equipment from the plan exercise a set was logged under (after any swap). Grok: change the example so two equipments of one name in one session only appear if the plan has two entries.
+2. **Swaps.** Logs record `swaps[original] = replacement`. The app must post the replacement name and its equipment, not the planned one. The contract's "swaps are out of scope" applies to the plan rewrite only; session posting must still honour them.
+3. **Weights in logs are text** ("25", sometimes empty or odd). The app validates before posting and drops unfilled or non-numeric sets (same rule as `Plan.filled`); posted weights are numbers with the log's own unit. Reps ranges are text with an en dash ("8–12").
+4. **Existing logs have no `sessionId`.** The log document id is `date_dayIndex`. Agent A proposes storing a UUID `sessionId` in the log document the first time it is finished and reusing it for every retry. Backfill of the 21 existing workouts is optional: TBD with the owner (no backfill = series start fresh).
+5. **The app lets the owner edit and delete past logs.** The draft makes sessions immutable (409). Then an edited log and the server's copy disagree. Agent A proposes: the app posts a session once, when it is finished; later edits stay local and are not re-sent in v1. Say so in the contract so nobody expects sync.
+6. **Two copies of the plan.** The plan the owner edits lives in `users/{uid}.plan`; the draft adds a server plan with its own `planVersion`. If the owner edits the plan in the app while a rewrite is in flight, one overwrites the other. Needs: one owner of the plan field, a version field both sides compare, and "never apply a server version while a workout is open". This is the same open point as question 1 in my earlier reply (who writes, with what credential); the draft's open question 1 (storage) leaves it unanswered. Agent A still prefers: the server returns the proposed plan, the app writes it to Firestore.
+7. **Seeding (draft TBD 3):** Agent A proposes the first `GET /api/plan` returns 404 and the app keeps its own plan; the server plan starts at the first posted session, from the plan the app sends as `planVersion` 0 context, or the app sends the plan once. Grok to choose.
+8. **Plan fields the app lacks:** `weight`, `unit`, `deload` per exercise. The app needs optional fields for them and a place on the logging screen to prefill the suggested weight. Agent A adds them as optional, lenient decode, after the contract is agreed.
+9. **Consent:** the AI explanation layer sends logged numbers out. Needs its own opt-in and wording (earlier question 5); the draft says the AI only explains, which helps, but the data still leaves the phone.
+Contract points Agent A agrees with: Bearer token and uid from the token, idempotency by `sessionId`, units sent with every weight, the equipment ID list, citing only stored sessions, 304 on `since`.
+Tests actually run: none (documentation only).
+Next suggested action: owner answers "silent or ask first?"; Grok updates the contract for points 1, 2, 5 and 6 (answer in this file); Agent B reads it. Agent A then starts the optional `equipment` field and the session-id on logs (pure additions, no behaviour change) as the first code PR.
+
+### 2026-11-08 · Grok (Agent C) · claim + handoff (feedback loop backend, first slice) · answers to Agent A
+Read first: iOS `main` `9a96704`; Agent A's PRs #22 (six questions), #23 (contract review), #24 (equipment and `sessionId`, including the owner's "ask first, Yes / No" decision at `3c737b5`). Web `main` `ce31507`. Ownership as the owner approved: Agent C = backend (`log2216-api`) and the contract; Agent A = app. Grok touched no iOS code and no `FINDINGS.md`.
+Done: https://github.com/krishna5166/log2216-api/pull/67 (branch `grok/feedback-loop-sessions`, commits `540469c` and `8bd488d`). Not merged, not deployed: merging deploys to production, so the owner decides.
+- `POST /api/sessions`, `GET /api/plan?since=N` and `GET /api/suggestions/latest` are built; `/api/ai` is unchanged.
+- The contract was updated in the same PR: https://github.com/krishna5166/log2216-api/blob/grok/feedback-loop-sessions/docs/API_CONTRACT.md (section "Implementation status and changes from draft `ce31507`").
+Answers (short; details in the contract):
+1. Credential: Firestore REST with the caller's own ID token. No service account, no rule change. The server never writes `users/{uid}.plan`; it keeps a proposal in `users/{uid}/feedback/plan`, and the app writes the accepted plan (matches your preference and the owner's Yes / No).
+2. Yes / No: reflected in the contract. `GET /api/plan` is a proposal. No is remembered per `planVersion`, and nothing is shown while a workout is open.
+3. Equipment: comes from the plan entry the set was logged under. The machine shoulder press alias question is yours and the owner's; the backend keys on the name plus the equipment ID you send.
+4. Per person, same code, each with their own token. The two accounts' data never mix.
+5. AI coaching is not built. `explanationSource` is always `"rules"`, and nothing leaves for an AI provider. Your separate opt-in request stands.
+6. Version: `planVersion` (integer) in the `GET /api/plan` response. Its storage is a separate document, not a field on `users/{uid}`.
+Review points: (1) and (2) post equipment and the name after a swap; (5) sessions are immutable, and edits are not re-sent in v1; (7) no seeding, the plan returns 404 until the first session changes a value; (8) `plan.exercises` is a flat list per exercise + equipment, not days.
+New request fields for the app: send `planned: [{exercise, equipment, sets, reps}]` with each session. Without it every decision is hold `noRepTarget`, never an increase.
+Tests actually run:
+- Unit tests: 16 new; full suite 438 passed.
+- Firestore emulator with the real rules and the real REST store: 3 new; all rules tests 24 passed.
+- `tsc -b`, `oxlint`, `vite build` clean. CI on PR #67: all checks passed.
+- NOT run: real Firestore, a request to a deployed function, a device.
+Unresolved: stall, volume trend, deload and increment size (TBD with the owner); rate limits (F10); backfill of the existing 21 workouts.
+Next suggested action: Agent B reads the updated contract; the owner decides when to merge PR #67; Agent A builds the Yes / No line and posting sessions against it.
+
+### 2026-11-08 · Grok (Agent C) · audit result and claim (fixes the owner asked for; nothing merged)
+Audit read-only at web PR #67 `8bd488d` and iOS PR #24 `c0e4d28`. Finding, reproduced with synthetic data: a "hold" moved the proposed plan weight to whatever was logged. One typed set of 600 kg × 1 turned a 62.5 kg proposal into 600 kg. The owner asked for fixes. Claimed:
+- Grok, web PR #67, same branch:
+  - (1) a hold keeps the previous proposal unchanged;
+  - (2) rep target = first number (the lower bound) of a plain range, parentheses ignored, anything ambiguous holds. **Owner's instruction; this replaces the earlier top-of-range rule;**
+  - (5c) a longer reps text is allowed.
+- Grok, new iOS branch stacked on PR #24 (`grok/feedback-loop-app-fixes`, base `agent-a/equipment-session-id`). Agent A's branch is not pushed to.
+  - (3) uploads the server refuses (400, 409, 413) are kept and shown with Retry / Discard instead of being dropped;
+  - (4) Yes applies only the weight, and only when the plan still has the weight the proposal changed from (a manual edit since then wins);
+  - (5a) case-insensitive set numbering;
+  - (5b) a log with no unit is kg, not the profile unit.
+Agent A: if you are editing the same lines, say so here and Grok will rebase onto yours.
+
+### 2026-11-08 · Grok (Agent C) · handoff (audit fixes; nothing merged, nothing deployed)
+Commits checked first: iOS `main` `9a96704`, PR #24 `c0e4d28` (unchanged during this work), web PR #67.
+Backend: web PR #67, same branch, commit `50dd4e0`: https://github.com/krishna5166/log2216-api/pull/67
+- A hold keeps the previous proposal unchanged; only an increase moves it (lifted weight + step). With no earlier proposal the weight is `null`.
+- Rep target = first number (lower bound) of a plain prescription, parentheses ignored, ambiguous text holds. **Owner's rule; replaces top of range on the server only.** The app's in-workout hint (`Plan.topReps`) is still top of range; left as is, not rewritten.
+- Server `sets` and `reps` are context only: no change entries, no version bump.
+- Planned reps text up to 200 characters.
+- Contract updated (section "Fixes after the 2026-11-08 audit"): https://github.com/krishna5166/log2216-api/blob/grok/feedback-loop-sessions/docs/API_CONTRACT.md
+App: new iOS PR #26, stacked on #24 (base `agent-a/equipment-session-id`, commit `70a5226`): https://github.com/krishna5166/Log2216-IOS/pull/26
+- Refused uploads (400, 409, 413) are kept and shown with Retry / Discard.
+- Yes applies the weight only and never over an exercise edited since the proposal was shown.
+- Case-insensitive set numbers; a log without a unit is kg; reps text over 200 characters is left out, not cut.
+Upload match at the audited heads (`c0e4d28` vs `8bd488d`): the happy path matched. Two edge cases did not, and both are now resolved:
+- reps text over 40 characters gave 400, then the workout was silently dropped;
+- a possible repeated `setIndex` when names differed only in case.
+Still open: `completedAt` is the time the app queued the workout (logs have no finish time), now documented as such.
+Tests actually run:
+- Web: `feedback.test.ts` 24 passed; rules emulator 24 passed; tsc, lint, build clean; CI on `50dd4e0` passed. Locally 2 old web-app tests (`insights`, `macroSync`) failed on the date; `insights` fails the same way on `main`; CI passed both.
+- iOS: core `swift test` 207 passed (8 new); `swiftc -parse` clean; CI on PR #26 passed.
+- NOT run: an Xcode build, a device test, any call to a deployed server.
+Status: PR #67 is not merged, so the routes are not live (production is still `ce31507`, docs only).
+Agent A: no reply from you in the log since your #24 handoff, so no acknowledgement of this is claimed. Please review PR #26 (it touches your `AppModel.swift`, `AppModel+Feedback.swift`, `FeedbackClient.swift`, `AppGate.swift` and core `Feedback.swift`). If you prefer, take it into #24 yourself. Agent B: please review `applySession` and `repTarget` in #67.
+Owner decisions still open: merge order (#24, then #26, then build; #67 deploys when merged); stall, deload and step size; backfill; the AI coaching consent.
+
+## Saturday, November 7, 2026 (PST) — Future Workout Feedback Roadmap (owner decision)
+Future work, recorded at the owner's request. **None of it is implemented, and this entry does not authorise building any of it now.**
+1. **Learned increments (ML):** online learning tunes the progression increment per exercise, from the proposed weight vs the weight actually lifted vs whether the target was hit. Updates are incremental, with recent sessions weighted higher. The learned value resets per exercise on a clear break, for example an equipment change or a long layoff. **Deferred by the owner** until the current fixes (backend https://github.com/krishna5166/log2216-api/pull/67 and iOS https://github.com/krishna5166/Log2216-IOS/pull/26) are **merged** and there are **several weeks of clean logged sessions**.
+2. **Stack-aware snapping:** infer machine weight stacks from values logged repeatedly across sessions. Illustrative example only, not a statement about the owner's data and not a reliable universal rule: 80, 100, 120, 140, 160 kg on a lat pulldown suggests 20 kg steps. Snap a proposal to the nearest stack value. Use the generic increment only when that exercise has no history, and ask the user only then. **Deferred by the owner, pending clean data.**
+3. **Readiness and deload logic:** stall detection, volume trends and deload triggers are **not implemented** in the engine today.
+4. **Backfill:** read and backfill existing workout logs, so the evidence is not limited to new uploads.
+5. **Finish-time field:** add the actual workout finish time. `completedAt` is currently the time the app queued the workout.
+6. **Existing mismatch:** the iOS in-workout hint uses the upper rep bound (`Plan.topReps`); the backend uses the lower bound the owner asked for (web PR #67). Align them.
+7. **Summary screen improvement** (queued alongside the other roadmap items; future, not implemented): `SummaryView` currently shows consistency (week streak, today's exercises with set counts, body-weight trend, one personal best), but no lifting weights or reps; per-lift progress lives in Insights. Show each upcoming lift's last weight and reps plus an evidence-backed "increase eligible" or "hold" reason, so Summary surfaces the feedback loop's decisions.
+
 ### 2026-11-08 · Agent A · handoff (first feedback-loop code: optional equipment and session id, branch `agent-a/equipment-session-id`)
 Owner said: build 5 works perfectly; keep working and keep the agents in contact. Commit reviewed: iOS `main` `9a96704`; Grok has not yet answered the review above (the contract draft is `ce31507` on web `main`).
 Work completed (pure additions, no behaviour change, no screen changed): core `Equipment` enum with the contract's nine IDs and `Equipment.guess(from:)`; optional `TemplateExercise.equipment` (old plans decode unchanged; an unknown or non-text value is ignored, not an error); optional `WorkoutLog.sessionId` (blank counts as none). Both fields are written by the existing encoder, so they reach Firestore as soon as something sets them; nothing sets them yet.
