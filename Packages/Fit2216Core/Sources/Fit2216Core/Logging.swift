@@ -101,7 +101,19 @@ public enum Logging {
     public static func suggestion(exercise: TemplateExercise, shownName: String, index: Int, log: WorkoutLog, history: [WorkoutLog], unit: WeightUnit) -> SetLog? {
         let last = lastTime(name: shownName, history: history, before: log.date, unit: unit)?.sets
         let ready = Plan.readyToIncrease(exercise, last)
-        return Plan.suggestSet(current: log.sets[exercise.name], index: index, last: last, ready: ready, step: step(unit))
+        let base = Plan.suggestSet(current: log.sets[exercise.name], index: index, last: last, ready: ready, step: step(unit))
+        return applyingPlanWeight(base, exercise: exercise, log: log, unit: unit)
+    }
+
+    /// A weight the plan carries (set when the owner accepted a feedback-loop proposal) is used for the first set of the exercise when it is higher
+    /// than what history suggests, or when there is no history. The loop only proposes increases or holds for now; if it ever proposes a decrease,
+    /// this rule must change, or the higher history weight would win. Ignored when the plan's unit is not the workout's unit.
+    static func applyingPlanWeight(_ base: SetLog?, exercise: TemplateExercise, log: WorkoutLog, unit: WeightUnit) -> SetLog? {
+        guard let planned = exercise.weight, planned > 0, (exercise.weightUnit ?? unit) == unit,
+              !(log.sets[exercise.name] ?? []).contains(where: Plan.filled) else { return base }
+        let suggested = base.flatMap { Double($0.weight.replacingOccurrences(of: ",", with: ".")) } ?? 0
+        guard planned > suggested else { return base }
+        return SetLog(weight: Units.tidy(planned), reps: base?.reps ?? "")
     }
 
     /// True when this edit just logged a set (reps went from empty to filled) and a rest should start. No rest after the very last set of the workout.

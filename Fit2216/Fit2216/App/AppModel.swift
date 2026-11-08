@@ -23,6 +23,10 @@ final class AppModel {
     var weights: [WeightEntry] = []
     var profile = Profile()
     var phase: Phase = .idle
+    /// The feedback loop's newest plan proposal, shown with Yes / No until answered, and whether a workout screen is open (nothing is offered then).
+    var planProposal: PlanProposal?
+    var workoutOpen = false
+    @ObservationIgnored var flushingFeedback = false
     /// Changes saved on this phone that the cloud has not confirmed yet (waiting for a connection), and the last reason one was refused.
     private(set) var unsent = 0
     private(set) var writeProblem: String?
@@ -195,14 +199,18 @@ final class AppModel {
     }
 
     /// Shows a changed workout at once and writes it to Firestore.
-    func save(_ log: WorkoutLog) {
+    func save(_ saved: WorkoutLog) {
+        var log = saved
+        let startsFeedback = prepareFeedback(&log)
         let id = Logging.documentID(log)
         if let i = logs.firstIndex(where: { Logging.documentID($0) == id }) { logs[i] = log } else { logs.insert(log, at: 0) }
         if let uid { tracked { done in service.saveLog(uid: uid, log: log, completion: done) } }
+        if startsFeedback { queueFeedback(log) }
     }
 
     private func clearData() {
         plan = []; library = []; logs = []; archive = []; weights = []; profile = Profile(); phase = .idle; lastLoaded = nil
+        planProposal = nil; workoutOpen = false
         unsent = 0; writeProblem = nil; slowSync = false; slowTimer?.cancel()
     }
 

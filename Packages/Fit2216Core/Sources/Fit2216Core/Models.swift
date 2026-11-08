@@ -26,13 +26,20 @@ public struct TemplateExercise: Codable, Equatable, Sendable {
     public var alternatives: [String]?
     public var restSec: Int?
     public var muscles: [Muscle]?
+    /// What the exercise is done with. Nil on older plans; an unknown value is ignored rather than failing the plan.
+    public var equipment: Equipment?
+    /// The weight the plan suggests for this exercise (set when the owner accepts a feedback-loop proposal); nil on older plans.
+    public var weight: Double?
+    public var weightUnit: WeightUnit?
 
-    public init(name: String, sets: Int, reps: String, optional: Bool? = nil, alternatives: [String]? = nil, restSec: Int? = nil, muscles: [Muscle]? = nil) {
+    public init(name: String, sets: Int, reps: String, optional: Bool? = nil, alternatives: [String]? = nil, restSec: Int? = nil, muscles: [Muscle]? = nil, equipment: Equipment? = nil,
+                weight: Double? = nil, weightUnit: WeightUnit? = nil) {
         self.name = name; self.sets = sets; self.reps = reps; self.optional = optional
-        self.alternatives = alternatives; self.restSec = restSec; self.muscles = muscles
+        self.alternatives = alternatives; self.restSec = restSec; self.muscles = muscles; self.equipment = equipment
+        self.weight = weight; self.weightUnit = weightUnit
     }
 
-    private enum Keys: String, CodingKey { case name, sets, reps, optional, alternatives, restSec, muscles }
+    private enum Keys: String, CodingKey { case name, sets, reps, optional, alternatives, restSec, muscles, equipment, weight, weightUnit }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
         name = try c.decode(String.self, forKey: .name) // an exercise with no name is dropped by its list
@@ -43,6 +50,9 @@ public struct TemplateExercise: Codable, Equatable, Sendable {
         restSec = c.lenientInt(.restSec)
         let names = try? c.decodeIfPresent([String].self, forKey: .muscles)
         muscles = names.map { $0.compactMap(Muscle.init(rawValue:)) }
+        equipment = c.lenientString(.equipment).flatMap(Equipment.init(rawValue:))
+        weight = c.lenientDouble(.weight).flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
+        weightUnit = (try? c.decodeIfPresent(WeightUnit.self, forKey: .weightUnit)) ?? nil
     }
 }
 
@@ -80,14 +90,16 @@ public struct WorkoutLog: Codable, Equatable, Sendable {
     public var sets: [String: [SetLog]]
     public var template: TemplateDay?
     public var swaps: [String: String]?
+    /// A UUID made once when the workout is finished and kept for every retry of sending it; nil on workouts finished before it existed.
+    public var sessionId: String?
 
     public init(date: String, dayName: String, dayIndex: Int? = nil, unit: WeightUnit? = nil, done: Bool? = nil, skipped: Bool? = nil,
-                sets: [String: [SetLog]] = [:], template: TemplateDay? = nil, swaps: [String: String]? = nil) {
+                sets: [String: [SetLog]] = [:], template: TemplateDay? = nil, swaps: [String: String]? = nil, sessionId: String? = nil) {
         self.date = date; self.dayName = dayName; self.dayIndex = dayIndex; self.unit = unit; self.done = done
-        self.skipped = skipped; self.sets = sets; self.template = template; self.swaps = swaps
+        self.skipped = skipped; self.sets = sets; self.template = template; self.swaps = swaps; self.sessionId = sessionId
     }
 
-    private enum Keys: String, CodingKey { case date, dayName, dayIndex, unit, done, skipped, sets, template, swaps }
+    private enum Keys: String, CodingKey { case date, dayName, dayIndex, unit, done, skipped, sets, template, swaps, sessionId }
     /// Repairs while reading: `sets` null or missing becomes empty, a null or unreadable set becomes an empty set, a template with no exercises list becomes empty.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
@@ -101,6 +113,7 @@ public struct WorkoutLog: Codable, Equatable, Sendable {
         sets = raw.mapValues(\.rows)
         template = try? c.decodeIfPresent(TemplateDay.self, forKey: .template)
         swaps = try? c.decodeIfPresent([String: String].self, forKey: .swaps)
+        sessionId = c.lenientString(.sessionId).flatMap { $0.isEmpty ? nil : $0 }
     }
 
     private struct LossySets: Decodable {
