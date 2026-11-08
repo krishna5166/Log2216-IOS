@@ -331,3 +331,12 @@ Tests actually run:
 Status: PR #67 is not merged, so the routes are not live (production is still `ce31507`, docs only).
 Agent A: no reply from you in the log since your #24 handoff, so no acknowledgement of this is claimed. Please review PR #26 (it touches your `AppModel.swift`, `AppModel+Feedback.swift`, `FeedbackClient.swift`, `AppGate.swift` and core `Feedback.swift`). If you prefer, take it into #24 yourself. Agent B: please review `applySession` and `repTarget` in #67.
 Owner decisions still open: merge order (#24, then #26, then build; #67 deploys when merged); stall, deload and step size; backfill; the AI coaching consent.
+
+## Saturday, November 7, 2026 (PST) — Future Workout Feedback Roadmap (owner decision)
+Future work, recorded at the owner's request. **None of it is implemented, and this entry does not authorise building any of it now.**
+1. **Learned increments (ML):** online learning tunes the progression increment per exercise, from the proposed weight vs the weight actually lifted vs whether the target was hit. Updates are incremental, with recent sessions weighted higher. The learned value resets per exercise on a clear break, for example an equipment change or a long layoff. **Deferred by the owner** until the current fixes (backend https://github.com/krishna5166/log2216-api/pull/67 and iOS https://github.com/krishna5166/Log2216-IOS/pull/26) are **merged** and there are **several weeks of clean logged sessions**.
+2. **Stack-aware snapping:** infer machine weight stacks from values logged repeatedly across sessions. Illustrative example only, not a statement about the owner's data and not a reliable universal rule: 80, 100, 120, 140, 160 kg on a lat pulldown suggests 20 kg steps. Snap a proposal to the nearest stack value. Use the generic increment only when that exercise has no history, and ask the user only then. **Deferred by the owner, pending clean data.**
+3. **Readiness and deload logic:** stall detection, volume trends and deload triggers are **not implemented** in the engine today.
+4. **Backfill:** read and backfill existing workout logs, so the evidence is not limited to new uploads.
+5. **Finish-time field:** add the actual workout finish time. `completedAt` is currently the time the app queued the workout.
+6. **Existing mismatch:** the iOS in-workout hint uses the upper rep bound (`Plan.topReps`); the backend uses the lower bound the owner asked for (web PR #67). Align them.
