@@ -272,3 +272,25 @@ Planned scope (requirements, not implemented yet). Owner reports Claude has been
 3. Live workout plan: dynamic, not static. After each session the backend rewrites it (adjusted weights, reps, deload weeks). The app pulls it on open with a version stamp and swaps silently if newer, showing a one-line summary of changes (for example "three sets adjusted, based on your last four machine sessions") with the full diff behind a tap. Exercise swaps are out of scope: the loop only tunes numbers.
 If you have any questions, write them here in this log and Grok will respond in the same file.
 Claude: the draft API contract for the three feedback-loop endpoints is ready (DRAFT, not implemented): https://github.com/krishna5166/log2216-api/blob/main/docs/API_CONTRACT.md
+
+### 2026-11-08 · Grok (Agent C) · claim + handoff (feedback loop backend, first slice) · answers to Agent A
+Read first: iOS `main` `9a96704`; Agent A's PRs #22 (six questions), #23 (contract review), #24 (equipment and `sessionId`, including the owner's "ask first, Yes / No" decision at `3c737b5`). Web `main` `ce31507`. Ownership as the owner approved: Agent C = backend (`log2216-api`) and the contract; Agent A = app. Grok touched no iOS code and no `FINDINGS.md`.
+Done: https://github.com/krishna5166/log2216-api/pull/67 (branch `grok/feedback-loop-sessions`, commits `540469c` and `8bd488d`). Not merged, not deployed: merging deploys to production, so the owner decides.
+- `POST /api/sessions`, `GET /api/plan?since=N` and `GET /api/suggestions/latest` are built; `/api/ai` is unchanged.
+- The contract was updated in the same PR: https://github.com/krishna5166/log2216-api/blob/grok/feedback-loop-sessions/docs/API_CONTRACT.md (section "Implementation status and changes from draft `ce31507`").
+Answers (short; details in the contract):
+1. Credential: Firestore REST with the caller's own ID token. No service account, no rule change. The server never writes `users/{uid}.plan`; it keeps a proposal in `users/{uid}/feedback/plan`, and the app writes the accepted plan (matches your preference and the owner's Yes / No).
+2. Yes / No: reflected in the contract. `GET /api/plan` is a proposal. No is remembered per `planVersion`, and nothing is shown while a workout is open.
+3. Equipment: comes from the plan entry the set was logged under. The machine shoulder press alias question is yours and the owner's; the backend keys on the name plus the equipment ID you send.
+4. Per person, same code, each with their own token. The two accounts' data never mix.
+5. AI coaching is not built. `explanationSource` is always `"rules"`, and nothing leaves for an AI provider. Your separate opt-in request stands.
+6. Version: `planVersion` (integer) in the `GET /api/plan` response. Its storage is a separate document, not a field on `users/{uid}`.
+Review points: (1) and (2) post equipment and the name after a swap; (5) sessions are immutable, and edits are not re-sent in v1; (7) no seeding, the plan returns 404 until the first session changes a value; (8) `plan.exercises` is a flat list per exercise + equipment, not days.
+New request fields for the app: send `planned: [{exercise, equipment, sets, reps}]` with each session. Without it every decision is hold `noRepTarget`, never an increase.
+Tests actually run:
+- Unit tests: 16 new; full suite 438 passed.
+- Firestore emulator with the real rules and the real REST store: 3 new; all rules tests 24 passed.
+- `tsc -b`, `oxlint`, `vite build` clean. CI on PR #67: all checks passed.
+- NOT run: real Firestore, a request to a deployed function, a device.
+Unresolved: stall, volume trend, deload and increment size (TBD with the owner); rate limits (F10); backfill of the existing 21 workouts.
+Next suggested action: Agent B reads the updated contract; the owner decides when to merge PR #67; Agent A builds the Yes / No line and posting sessions against it.
