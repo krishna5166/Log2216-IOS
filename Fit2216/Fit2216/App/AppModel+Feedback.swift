@@ -37,7 +37,7 @@ extension AppModel {
 
     /// Queues a finished workout for the server and tries to send everything waiting.
     func queueFeedback(_ log: WorkoutLog) {
-        guard let uid, let session = FeedbackSession.make(from: log, plan: plan, fallbackUnit: profile.gymUnit) else { return }
+        guard let uid, let session = FeedbackSession.make(from: log, plan: plan) else { return }
         var box = FeedbackOutbox.load(uid)
         if !box.contains(where: { $0.sessionId == session.sessionId }) { box.append(session) }
         FeedbackOutbox.save(box, uid: uid)
@@ -52,15 +52,19 @@ extension AppModel {
         let client = FeedbackClient()
         var left: [FeedbackSession] = []
         var anySent = false
+        var failed = FeedbackOutbox.loadFailed(uid)
         for session in FeedbackOutbox.load(uid) {
             switch await client.post(session) {
             case .sent: anySent = true
-            case .drop: break
+            case .refused(let status, let message):
+                failed = FeedbackFailure.recording(FeedbackFailure(session: session, status: status, message: message, at: ISO8601DateFormatter().string(from: Date())), in: failed)
             case .retry: left.append(session)
             }
         }
         guard self.uid == uid else { return } // signed out meanwhile
         FeedbackOutbox.save(left, uid: uid)
+        FeedbackOutbox.saveFailed(failed, uid: uid)
+        feedbackFailures = failed
         if anySent { await refreshProposal() }
     }
 
@@ -69,21 +73,46 @@ extension AppModel {
         guard let uid else { return }
         let found = await FeedbackClient().plan(since: acceptedVersion)
         guard self.uid == uid else { return }
+        if found?.planVersion != planProposal?.planVersion || planProposalBasis == nil { planProposalBasis = plan }
         planProposal = found
     }
 
     /// Yes: the proposed numbers go into the plan and are saved like any plan edit.
     func acceptPlanOffer() {
         guard !workoutOpen, let p = planProposal else { return }
-        savePlan(p.applied(to: plan).plan)
+        savePlan(p.applied(to: plan, basis: planProposalBasis).plan)   // exercises edited since the proposal was shown keep the edit
         acceptedVersion = p.planVersion
-        planProposal = nil
+        planProposal = nil; planProposalBasis = nil
     }
 
     /// No: the plan stays as it is, and this version is not offered again (a newer one will be).
     func declinePlanOffer() {
         guard let p = planProposal else { return }
         declinedVersion = p.planVersion
-        planProposal = nil
+        planProposal = nil; planProposalBasis = nil
+    }
+
+    /// Retry the refused workouts: each is rebuilt from its current log (so a corrected log is what is sent); a 409 cannot be fixed by
+    /// sending again and stays until discarded.
+    func retryFeedbackFailures() {
+        guard let uid else { return }
+        var keep: [FeedbackFailure] = []
+        var box = FeedbackOutbox.load(uid)
+        for f in FeedbackOutbox.loadFailed(uid) {
+            let log = (logs + archive).first { $0.sessionId == f.session.sessionId }
+            guard let body = FeedbackFailure.retryBody(f, rebuilt: log.flatMap { FeedbackSession.make(from: $0, plan: plan) }) else { keep.append(f); continue }
+            if !box.contains(where: { $0.sessionId == body.sessionId }) { box.append(body) }
+        }
+        FeedbackOutbox.save(box, uid: uid)
+        FeedbackOutbox.saveFailed(keep, uid: uid)
+        feedbackFailures = keep
+        Task { @MainActor in await flushFeedback() }
+    }
+
+    /// Discard the refused workouts: they stay in the workout history, only the feedback loop does not use them.
+    func discardFeedbackFailures() {
+        guard let uid else { return }
+        FeedbackOutbox.saveFailed([], uid: uid)
+        feedbackFailures = []
     }
 }
