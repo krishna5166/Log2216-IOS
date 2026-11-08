@@ -26,5 +26,10 @@ extension KeyedDecodingContainer {
         if let d = try? decodeIfPresent(Double.self, forKey: key) { return Int(d) }
         return nil
     }
+    func lenientDouble(_ key: Key) -> Double? {
+        if let d = try? decodeIfPresent(Double.self, forKey: key) { return d }
+        if let s = try? decodeIfPresent(String.self, forKey: key) { return Double(s.trimmingCharacters(in: .whitespaces)) }
+        return nil
+    }
     func lenientBool(_ key: Key) -> Bool? { try? decodeIfPresent(Bool.self, forKey: key) }
 }

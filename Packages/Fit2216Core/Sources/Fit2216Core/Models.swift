@@ -28,13 +28,18 @@ public struct TemplateExercise: Codable, Equatable, Sendable {
     public var muscles: [Muscle]?
     /// What the exercise is done with. Nil on older plans; an unknown value is ignored rather than failing the plan.
     public var equipment: Equipment?
+    /// The weight the plan suggests for this exercise (set when the owner accepts a feedback-loop proposal); nil on older plans.
+    public var weight: Double?
+    public var weightUnit: WeightUnit?
 
-    public init(name: String, sets: Int, reps: String, optional: Bool? = nil, alternatives: [String]? = nil, restSec: Int? = nil, muscles: [Muscle]? = nil, equipment: Equipment? = nil) {
+    public init(name: String, sets: Int, reps: String, optional: Bool? = nil, alternatives: [String]? = nil, restSec: Int? = nil, muscles: [Muscle]? = nil, equipment: Equipment? = nil,
+                weight: Double? = nil, weightUnit: WeightUnit? = nil) {
         self.name = name; self.sets = sets; self.reps = reps; self.optional = optional
         self.alternatives = alternatives; self.restSec = restSec; self.muscles = muscles; self.equipment = equipment
+        self.weight = weight; self.weightUnit = weightUnit
     }
 
-    private enum Keys: String, CodingKey { case name, sets, reps, optional, alternatives, restSec, muscles, equipment }
+    private enum Keys: String, CodingKey { case name, sets, reps, optional, alternatives, restSec, muscles, equipment, weight, weightUnit }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
         name = try c.decode(String.self, forKey: .name) // an exercise with no name is dropped by its list
@@ -46,6 +51,8 @@ public struct TemplateExercise: Codable, Equatable, Sendable {
         let names = try? c.decodeIfPresent([String].self, forKey: .muscles)
         muscles = names.map { $0.compactMap(Muscle.init(rawValue:)) }
         equipment = c.lenientString(.equipment).flatMap(Equipment.init(rawValue:))
+        weight = c.lenientDouble(.weight).flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
+        weightUnit = (try? c.decodeIfPresent(WeightUnit.self, forKey: .weightUnit)) ?? nil
     }
 }
 
