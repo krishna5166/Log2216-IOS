@@ -41,6 +41,8 @@ struct LoggingView: View {
             }
         }
         .task(id: model.canLog) { await start() }
+        .onAppear { model.workoutOpen = true }
+        .onDisappear { model.workoutOpen = false }
         .preferredColorScheme(.dark)
         .tint(Theme.lime)
     }

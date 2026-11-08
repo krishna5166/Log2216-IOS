@@ -17,13 +17,13 @@ struct AppGate: View {
                 .onAppear { model.reset(); rest.stop() }
         case .signedIn(let uid, _):
             RootView()
-                .task(id: uid) { await model.load(uid: uid) }
+                .task(id: uid) { await model.load(uid: uid); await model.flushFeedback(); await model.refreshProposal() }
                 .task { await midnightTicks() }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { model.dayChanged(); Task { await model.refreshIfNeeded() } }
+                    if phase == .active { model.dayChanged(); Task { await model.refreshIfNeeded(); await model.flushFeedback(); await model.refreshProposal() } }
                 }
                 .overlay { LoadingOverlay() }
-                .safeAreaInset(edge: .top) { StatusBanner(uid: uid) }
+                .safeAreaInset(edge: .top) { VStack(spacing: 0) { StatusBanner(uid: uid); PlanOfferBanner() } }
         }
     }
 

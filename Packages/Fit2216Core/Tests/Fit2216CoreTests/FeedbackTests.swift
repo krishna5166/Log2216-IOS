@@ -117,3 +117,26 @@ final class FeedbackTests: XCTestCase {
         XCTAssertNil(old.weight)
     }
 }
+
+final class PlanWeightHintTests: XCTestCase {
+    private func hint(planWeight: Double?, unit: WeightUnit? = .lb, history: [WorkoutLog] = [], logged: [SetLog] = []) -> SetLog? {
+        let ex = TemplateExercise(name: "Bench Press", sets: 4, reps: "8–12", weight: planWeight, weightUnit: unit)
+        let log = WorkoutLog(date: "2026-11-10", dayName: "D", dayIndex: 2, unit: .lb, sets: logged.isEmpty ? [:] : ["Bench Press": logged])
+        return Logging.suggestion(exercise: ex, shownName: "Bench Press", index: logged.count, log: log, history: history, unit: .lb)
+    }
+    func testPlanWeightUsedWithNoHistory() {
+        XCTAssertEqual(hint(planWeight: 140)?.weight, "140")
+    }
+    func testLowerPlanWeightDoesNotBeatHistory() {
+        let past = WorkoutLog(date: "2026-11-03", dayName: "D", dayIndex: 2, unit: .lb, done: true, sets: ["Bench Press": [SetLog(weight: "150", reps: "8")]])
+        XCTAssertEqual(hint(planWeight: 140, history: [past])?.weight, "150")
+    }
+    func testNotUsedAfterAFirstSetIsLogged() {
+        XCTAssertEqual(hint(planWeight: 140, logged: [SetLog(weight: "135", reps: "8")])?.weight, "135")
+    }
+    func testOtherUnitIgnoredAndNoWeightIsHarmless() {
+        XCTAssertNotEqual(hint(planWeight: 60, unit: .kg)?.weight, "60")
+        XCTAssertNil(hint(planWeight: nil)?.weight.nonEmpty)
+    }
+}
+private extension String { var nonEmpty: String? { isEmpty ? nil : self } }
